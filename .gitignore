@@ -1,0 +1,5 @@
+
+# Local k3s dev env
+dev/k3s/kubeconfig/*
+!dev/k3s/kubeconfig/.gitkeep
+dev/k3s/kubeconfig.yaml

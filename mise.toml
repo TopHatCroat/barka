@@ -1,0 +1,13 @@
+[tools]
+docker-cli = '29.2.0'
+docker-compose = '5.0.2'
+kubectl = '1.29.1'
+
+[tasks."k3s:up"]
+run = ["docker-compose -f dev/k3s/docker-compose.yml up -d"]
+
+[tasks."k3s:down"]
+run = ["docker-compose -f dev/k3s/docker-compose.yml down -v"]
+
+[tasks."k3s:kubectl"]
+run = ["KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml kubectl \"$@\"", "--"]

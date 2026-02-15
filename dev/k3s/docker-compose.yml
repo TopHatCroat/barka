@@ -1,0 +1,25 @@
+services:
+  k3s:
+    image: rancher/k3s:v1.35.1-k3s1
+    container_name: k3s
+    privileged: true
+    tmpfs:
+      - /run
+      - /var/run
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /output/kubeconfig.yaml
+      K3S_KUBECONFIG_MODE: "644"
+    command: >
+      server
+      --tls-san localhost
+      --tls-san host.docker.internal
+    ports:
+      - "6443:6443"   # Kubernetes API
+      - "8080:80"     # Traefik ingress HTTP
+      - "8443:443"    # Traefik ingress HTTPS
+    volumes:
+      - k3s-server:/var/lib/rancher/k3s
+      - ./kubeconfig:/output
+
+volumes:
+  k3s-server: {}
