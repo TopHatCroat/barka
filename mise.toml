@@ -4,10 +4,67 @@ docker-compose = '5.0.2'
 kubectl = '1.29.1'
 
 [tasks."k3s:up"]
-run = ["docker-compose -f dev/k3s/docker-compose.yml up -d"]
+run = "docker compose -f dev/k3s/docker-compose.yml up -d"
 
 [tasks."k3s:down"]
-run = ["docker-compose -f dev/k3s/docker-compose.yml down -v"]
+run = "docker compose -f dev/k3s/docker-compose.yml down"
+
+[tasks."k3s:reset"]
+run = "docker compose -f dev/k3s/docker-compose.yml down -v && rm -f dev/k3s/kubeconfig/kubeconfig.yaml"
+
+[tasks."k3s:wait"]
+run = "kubectl wait --for=condition=Ready nodes --all --timeout=180s"
+
+[tasks."k3s:wait-api"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+tries=120
+while [ "$tries" -gt 0 ]; do
+  if kubectl --request-timeout=2s get --raw=/readyz >/dev/null 2>&1; then
+    exit 0
+  fi
+  tries=$((tries - 1))
+  sleep 1
+done
+
+echo "Timed out waiting for Kubernetes API" >&2
+exit 1
+'''
 
 [tasks."k3s:kubectl"]
-run = ["KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml kubectl \"$@\"", "--"]
+run = "kubectl"
+
+[tasks."tools:apply"]
+run = "kubectl apply -f tools"
+
+[tasks."tools:delete"]
+run = "kubectl delete -f tools --ignore-not-found=true"
+
+[tasks."local:up"]
+run = [
+  { task = "k3s:up" },
+  { task = "k3s:wait-api" },
+  { task = "k3s:wait" },
+  { task = "tools:apply" },
+]
+
+[tasks."local:down"]
+run = [
+  { task = "k3s:down" },
+]
+
+[tasks."local:reset"]
+run = [
+  { task = "k3s:reset" },
+]
+
+[tasks."headlamp:install"]
+run = "kubectl apply -f tools/headlamp.yaml"
+
+[tasks."headlamp:uninstall"]
+run = "kubectl delete -f tools/headlamp.yaml"
+
+[tasks."headlamp:token"]
+run = "kubectl -n headlamp create token headlamp-admin"
