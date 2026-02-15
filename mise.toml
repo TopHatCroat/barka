@@ -3,19 +3,12 @@ docker-cli = '29.2.0'
 docker-compose = '5.0.2'
 kubectl = '1.29.1'
 
-[tasks."k3s:up"]
-run = "docker compose -f dev/k3s/docker-compose.yml up -d"
+# -----------------------------------------------------------------------------
+# Kube Tasks (env-agnostic)
+# These operate on whatever cluster your selected mise environment points to.
+# -----------------------------------------------------------------------------
 
-[tasks."k3s:down"]
-run = "docker compose -f dev/k3s/docker-compose.yml down"
-
-[tasks."k3s:reset"]
-run = "docker compose -f dev/k3s/docker-compose.yml down -v && rm -f dev/k3s/kubeconfig/kubeconfig.yaml"
-
-[tasks."k3s:wait"]
-run = "kubectl wait --for=condition=Ready nodes --all --timeout=180s"
-
-[tasks."k3s:wait-api"]
+[tasks."kube:wait-api"]
 run = '''
 #!/usr/bin/env sh
 set -eu
@@ -33,38 +26,77 @@ echo "Timed out waiting for Kubernetes API" >&2
 exit 1
 '''
 
-[tasks."k3s:kubectl"]
-run = "kubectl"
+[tasks."kube:wait-nodes-ready"]
+run = "kubectl wait --for=condition=Ready nodes --all --timeout=180s"
 
-[tasks."tools:apply"]
+[tasks."kube:tools:apply"]
 run = "kubectl apply -f tools"
 
-[tasks."tools:delete"]
+[tasks."kube:tools:delete"]
 run = "kubectl delete -f tools --ignore-not-found=true"
+
+[tasks."kube:tools:diff"]
+run = "kubectl diff -f tools"
+
+[tasks."kube:kubectl"]
+run = "kubectl"
+
+[tasks."kube:headlamp:token"]
+run = "kubectl -n headlamp create token headlamp-admin"
+
+# -----------------------------------------------------------------------------
+# Local Tasks (local-only)
+# These manage the local k3s-in-Docker lifecycle.
+# -----------------------------------------------------------------------------
+
+[tasks."local:k3s:up"]
+run = "docker compose -f dev/k3s/docker-compose.yml up -d"
+hide = true
+
+[tasks."local:k3s:down"]
+run = "docker compose -f dev/k3s/docker-compose.yml down"
+hide = true
+
+[tasks."local:k3s:reset"]
+run = "docker compose -f dev/k3s/docker-compose.yml down -v && rm -f dev/k3s/kubeconfig/kubeconfig.yaml"
+hide = true
 
 [tasks."local:up"]
 run = [
-  { task = "k3s:up" },
-  { task = "k3s:wait-api" },
-  { task = "k3s:wait" },
-  { task = "tools:apply" },
+  { task = "local:k3s:up" },
+  { task = "kube:wait-api" },
+  { task = "kube:wait-nodes-ready" },
+  { task = "kube:tools:apply" },
 ]
 
 [tasks."local:down"]
 run = [
-  { task = "k3s:down" },
+  { task = "local:k3s:down" },
 ]
 
 [tasks."local:reset"]
 run = [
-  { task = "k3s:reset" },
+  { task = "local:k3s:reset" },
 ]
 
-[tasks."headlamp:install"]
-run = "kubectl apply -f tools/headlamp.yaml"
+# -----------------------------------------------------------------------------
+# Production Tasks (wrappers)
+# These are just guarded entrypoints to kube:* tasks.
+# -----------------------------------------------------------------------------
 
-[tasks."headlamp:uninstall"]
-run = "kubectl delete -f tools/headlamp.yaml"
+[tasks."prod:tools:diff"]
+run = [
+  { task = "kube:tools:diff" },
+]
 
-[tasks."headlamp:token"]
-run = "kubectl -n headlamp create token headlamp-admin"
+[tasks."prod:tools:apply"]
+confirm = "Apply tools/ to the CURRENT kube context?"
+run = [
+  { task = "kube:tools:apply" },
+]
+
+[tasks."prod:tools:delete"]
+confirm = "Delete tools/ from the CURRENT kube context?"
+run = [
+  { task = "kube:tools:delete" },
+]

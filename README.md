@@ -43,10 +43,10 @@ kubectl get nodes
 Or via mise:
 
 ```bash
-mise -E local run k3s:kubectl -- get pods -A
+mise -E local run kube:kubectl -- get pods -A
 ```
 
-Note: `local:up` installs everything in `tools/` by running `kubectl apply -f /tools` inside the k3s container.
+Note: `local:up` installs everything in `tools/` by running `kubectl apply -f tools` using the selected `KUBECONFIG`.
 
 Endpoints:
 
@@ -67,18 +67,18 @@ mise -E local run local:reset
 
 ### Headlamp UI
 
-Headlamp is installed by `mise run local:up` from `tools/headlamp.yaml`.
+Headlamp is installed by `mise -E local run local:up` from `tools/headlamp.yaml`.
 
 URL: http://headlamp.localhost:8080/
 
 Login token (dev-only, cluster-admin):
 
 ```bash
-mise -E local run headlamp:token
+mise -E local run kube:headlamp:token
 ```
 
-Uninstall:
+To uninstall Headlamp (and all other definitions in `tools/`):
 
 ```bash
-mise -E local run headlamp:uninstall
+mise -E local run kube:tools:delete
 ```
