@@ -1,0 +1,26 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: headlamp
+  namespace: {{ .Release.Namespace }}
+  annotations:
+{{- range $k, $v := .Values.ingress.annotations }}
+    {{ $k }}: {{ $v | quote }}
+{{- end }}
+spec:
+{{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+{{- end }}
+  rules:
+    - host: {{ required "ingress.host is required when ingress.enabled=true" .Values.ingress.host }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.path }}
+            pathType: {{ .Values.ingress.pathType }}
+            backend:
+              service:
+                name: headlamp
+                port:
+                  name: http
+{{- end }}

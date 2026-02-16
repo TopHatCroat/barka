@@ -21,6 +21,16 @@ This repo uses k3s (local) and plain kubectl (all envs), with task entrypoints m
 - Local mise env config: `mise.local.toml` (loads `.env.local`)
 - Local env file (gitignored): `.env.local` (must include `KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml`)
 
+## Production Environment
+
+- Prod mise env config: `mise.production.toml`
+- `KUBECONFIG` should be provided via your shell environment (not committed to the repo)
+
+Infisical (production secrets):
+
+- `kube:tools:apply` will install the Infisical Secrets Operator and create/update the Universal Auth credentials secret.
+- You must export `INFISICAL_CLIENT_ID` and `INFISICAL_CLIENT_SECRET` in your shell before running production tasks.
+
 Common commands:
 
 ```bash
@@ -37,8 +47,8 @@ mise -E local run local:reset
 
 ## Tools Manifests
 
-- All definitions in `tools/` are applied by `kube:tools:apply`.
-- Headlamp lives at `tools/headlamp.yaml`.
+- Tools are installed by `kube:tools:apply`.
+- Headlamp is managed by an in-repo Helm chart at `charts/headlamp/`.
 - Avoid generating or storing credentials in the repo. Tokens are created on-demand via `kube:headlamp:token`.
 
 ## Safety

@@ -5,7 +5,8 @@ My personal k3s cluster setup.
 ## Structure
 
 * `./dev/` local development
-* `./tools/` tools used to manage the cluster
+* `./charts/` in-repo Helm charts
+* `./tools/` cluster tools (non-Helm manifests)
 * `./apps/` apps running in the cluster
 
 
@@ -21,6 +22,17 @@ KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml
 ```
 
 5. `mise -E local run local:up`
+
+Production uses `mise.production.toml` and expects `KUBECONFIG` to be set in your shell.
+
+Production (tools install via Helm; Infisical via Universal Auth):
+
+```bash
+export KUBECONFIG=~/kubeconfigs/production.yaml
+export INFISICAL_CLIENT_ID=...
+export INFISICAL_CLIENT_SECRET=...
+mise -E production run prod:tools:apply
+```
 
 ### Local k3s (Docker Desktop, single-node)
 
@@ -46,7 +58,7 @@ Or via mise:
 mise -E local run kube:kubectl -- get pods -A
 ```
 
-Note: `local:up` installs everything in `tools/` by running `kubectl apply -f tools` using the selected `KUBECONFIG`.
+Note: `local:up` installs tools by running `kube:tools:apply` (Helm-based) using the selected `KUBECONFIG`.
 
 Endpoints:
 
@@ -67,17 +79,23 @@ mise -E local run local:reset
 
 ### Headlamp UI
 
-Headlamp is installed by `mise -E local run local:up` from `tools/headlamp.yaml`.
+Headlamp is installed by `mise -E local run local:up` from `charts/headlamp/`.
 
 URL: http://headlamp.localhost:8080/
 
-Login token (dev-only, cluster-admin):
+Production: Headlamp has no Ingress; use port-forward:
+
+```bash
+mise -E production run kube:headlamp:port-forward
+```
+
+Login token (creates a short-lived token):
 
 ```bash
 mise -E local run kube:headlamp:token
 ```
 
-To uninstall Headlamp (and all other definitions in `tools/`):
+To uninstall tools:
 
 ```bash
 mise -E local run kube:tools:delete

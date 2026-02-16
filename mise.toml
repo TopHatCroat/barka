@@ -1,6 +1,7 @@
 [tools]
 docker-cli = '29.2.0'
 docker-compose = '5.0.2'
+helm = '3.15.4'
 kubectl = '1.29.1'
 
 # -----------------------------------------------------------------------------
@@ -27,22 +28,99 @@ exit 1
 '''
 
 [tasks."kube:wait-nodes-ready"]
-run = "kubectl wait --for=condition=Ready nodes --all --timeout=180s"
+run = "kubectl wait --for=condition=Ready node/k3s --timeout=180s"
 
 [tasks."kube:tools:apply"]
-run = "kubectl apply -f tools"
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+
+headlamp_values=""
+if [ "$CLUSTER_ENV" = "local" ]; then
+  headlamp_values="-f charts/headlamp/values-local.yaml"
+fi
+
+# Headlamp
+helm upgrade --install headlamp charts/headlamp \
+  -n headlamp \
+  --create-namespace \
+  --wait \
+  --timeout 5m \
+  $headlamp_values
+
+# Infisical (production only)
+if [ "$CLUSTER_ENV" = "production" ]; then
+  : "${INFISICAL_CLIENT_ID:?INFISICAL_CLIENT_ID must be set in your shell env}"
+  : "${INFISICAL_CLIENT_SECRET:?INFISICAL_CLIENT_SECRET must be set in your shell env}"
+
+  helm upgrade --install infisical-secrets-operator secrets-operator \
+    --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
+    --version 0.10.11 \
+    -n infisical-operator-system \
+    --create-namespace \
+    --wait \
+    --timeout 5m
+
+  kubectl -n infisical-operator-system create secret generic infisical-universal-auth-credentials \
+    --from-literal=clientId="$INFISICAL_CLIENT_ID" \
+    --from-literal=clientSecret="$INFISICAL_CLIENT_SECRET" \
+    --dry-run=client \
+    -o yaml | kubectl apply -f -
+fi
+'''
 
 [tasks."kube:tools:delete"]
-run = "kubectl delete -f tools --ignore-not-found=true"
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+
+if helm -n headlamp status headlamp >/dev/null 2>&1; then
+  helm -n headlamp uninstall headlamp
+fi
+
+if [ "$CLUSTER_ENV" = "production" ]; then
+  if helm -n infisical-operator-system status infisical-secrets-operator >/dev/null 2>&1; then
+    helm -n infisical-operator-system uninstall infisical-secrets-operator
+  fi
+
+  kubectl -n infisical-operator-system delete secret infisical-universal-auth-credentials --ignore-not-found=true
+fi
+'''
 
 [tasks."kube:tools:diff"]
-run = "kubectl diff -f tools"
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+
+headlamp_values=""
+if [ "$CLUSTER_ENV" = "local" ]; then
+  headlamp_values="-f charts/headlamp/values-local.yaml"
+fi
+
+helm template headlamp charts/headlamp -n headlamp $headlamp_values | kubectl diff -f -
+
+if [ "$CLUSTER_ENV" = "production" ]; then
+  helm template infisical-secrets-operator secrets-operator \
+    --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
+    --version 0.10.11 \
+    -n infisical-operator-system | kubectl diff -f -
+fi
+'''
 
 [tasks."kube:kubectl"]
 run = "kubectl"
 
 [tasks."kube:headlamp:token"]
 run = "kubectl -n headlamp create token headlamp-admin"
+
+[tasks."kube:headlamp:port-forward"]
+run = "kubectl -n headlamp port-forward svc/headlamp 8081:80"
 
 # -----------------------------------------------------------------------------
 # Local Tasks (local-only)

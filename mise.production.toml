@@ -1,0 +1,7 @@
+[env]
+CLUSTER_ENV = "production"
+
+KUBECONFIG = { required = "Set KUBECONFIG to your production kubeconfig path (e.g. export KUBECONFIG=~/kubeconfigs/prod.yaml)" }
+
+INFISICAL_CLIENT_ID = { required = "Set INFISICAL_CLIENT_ID in your shell env (Infisical Universal Auth)" }
+INFISICAL_CLIENT_SECRET = { required = "Set INFISICAL_CLIENT_SECRET in your shell env (Infisical Universal Auth)" }
