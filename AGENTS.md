@@ -31,6 +31,11 @@ Infisical (production secrets):
 - `kube:tools:apply` will install the Infisical Secrets Operator and create/update the Universal Auth credentials secret.
 - You must export `INFISICAL_CLIENT_ID` and `INFISICAL_CLIENT_SECRET` in your shell before running production tasks.
 
+InfisicalSecret CRDs:
+
+- Put `InfisicalSecret` resources in `tools/infisical/`.
+- Files ending in `.example.yaml` are ignored by the mise tasks.
+
 Common commands:
 
 ```bash

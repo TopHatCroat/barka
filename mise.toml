@@ -68,6 +68,16 @@ if [ "$CLUSTER_ENV" = "production" ]; then
     --from-literal=clientSecret="$INFISICAL_CLIENT_SECRET" \
     --dry-run=client \
     -o yaml | kubectl apply -f -
+
+  # Apply any InfisicalSecret CRDs (ignore *.example.yaml)
+  if ls tools/infisical/*.yaml >/dev/null 2>&1; then
+    for f in tools/infisical/*.yaml; do
+      case "$f" in
+        *.example.yaml) continue ;;
+      esac
+      kubectl apply -f "$f"
+    done
+  fi
 fi
 '''
 
@@ -83,6 +93,16 @@ if helm -n headlamp status headlamp >/dev/null 2>&1; then
 fi
 
 if [ "$CLUSTER_ENV" = "production" ]; then
+  # Delete InfisicalSecret CRDs first (ignore *.example.yaml)
+  if ls tools/infisical/*.yaml >/dev/null 2>&1; then
+    for f in tools/infisical/*.yaml; do
+      case "$f" in
+        *.example.yaml) continue ;;
+      esac
+      kubectl delete -f "$f" --ignore-not-found=true || true
+    done
+  fi
+
   if helm -n infisical-operator-system status infisical-secrets-operator >/dev/null 2>&1; then
     helm -n infisical-operator-system uninstall infisical-secrets-operator
   fi
@@ -110,6 +130,16 @@ if [ "$CLUSTER_ENV" = "production" ]; then
     --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
     --version 0.10.11 \
     -n infisical-operator-system | kubectl diff -f -
+
+  # Diff any InfisicalSecret CRDs (ignore *.example.yaml)
+  if ls tools/infisical/*.yaml >/dev/null 2>&1; then
+    for f in tools/infisical/*.yaml; do
+      case "$f" in
+        *.example.yaml) continue ;;
+      esac
+      kubectl diff -f "$f" || true
+    done
+  fi
 fi
 '''
 

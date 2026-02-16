@@ -34,6 +34,8 @@ export INFISICAL_CLIENT_SECRET=...
 mise -E production run prod:tools:apply
 ```
 
+To sync application secrets in production, add `InfisicalSecret` CRDs under `tools/infisical/` (ignore the committed `tools/infisical/infisicalsecret.example.yaml`).
+
 ### Local k3s (Docker Desktop, single-node)
 
 - Requirements: Docker Desktop running
