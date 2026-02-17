@@ -9,6 +9,14 @@ instance:
     gateway:
       bind: lan
 
+    agents:
+      defaults:
+        models:
+          "openai-codex/gpt-5.2-codex":
+            alias: codex
+        model:
+          primary: "openai-codex/gpt-5.2-codex"
+
     channels:
       whatsapp:
         dmPolicy: "pairing"
