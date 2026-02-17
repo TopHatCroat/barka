@@ -1,0 +1,33 @@
+instance:
+  name: openclaw
+  envFromSecretName: openclaw-api-keys
+
+  configRaw:
+    gateway:
+      bind: lan
+    agents:
+      defaults:
+        model:
+          primary: "openai-codex/gpt-5.2-codex"
+        sandbox: true
+    session:
+      scope: "per-sender"
+
+  storage:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+  networking:
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      security:
+        forceHTTPS: true
+        enableHSTS: true
+      hosts: []
+
+  security:
+    networkPolicy:
+      allowedIngressNamespaces: []

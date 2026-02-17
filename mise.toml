@@ -50,6 +50,14 @@ helm upgrade --install headlamp charts/headlamp \
   --timeout 5m \
   $headlamp_values
 
+# OpenClaw Operator
+helm upgrade --install openclaw-operator oci://ghcr.io/openclaw-rocks/charts/openclaw-operator \
+  --version 0.6.0 \
+  -n openclaw-operator-system \
+  --create-namespace \
+  --wait \
+  --timeout 5m
+
 # Infisical (production only)
 if [ "$CLUSTER_ENV" = "production" ]; then
   : "${INFISICAL_CLIENT_ID:?INFISICAL_CLIENT_ID must be set in your shell env}"
@@ -92,6 +100,10 @@ if helm -n headlamp status headlamp >/dev/null 2>&1; then
   helm -n headlamp uninstall headlamp
 fi
 
+if helm -n openclaw-operator-system status openclaw-operator >/dev/null 2>&1; then
+  helm -n openclaw-operator-system uninstall openclaw-operator
+fi
+
 if [ "$CLUSTER_ENV" = "production" ]; then
   # Delete InfisicalSecret CRDs first (ignore *.example.yaml)
   if ls tools/infisical/*.yaml >/dev/null 2>&1; then
@@ -125,11 +137,16 @@ fi
 
 helm template headlamp charts/headlamp -n headlamp $headlamp_values | kubectl diff -f -
 
+helm template openclaw-operator oci://ghcr.io/openclaw-rocks/charts/openclaw-operator \
+  --version 0.6.0 \
+  -n openclaw-operator-system \
+  --include-crds | kubectl diff -n openclaw-operator-system -f -
+
 if [ "$CLUSTER_ENV" = "production" ]; then
   helm template infisical-secrets-operator secrets-operator \
     --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
     --version 0.10.11 \
-    -n infisical-operator-system | kubectl diff -f -
+    -n infisical-operator-system | kubectl diff -n infisical-operator-system -f -
 
   # Diff any InfisicalSecret CRDs (ignore *.example.yaml)
   if ls tools/infisical/*.yaml >/dev/null 2>&1; then
@@ -151,6 +168,67 @@ run = "kubectl -n headlamp create token headlamp-admin"
 
 [tasks."kube:headlamp:port-forward"]
 run = "kubectl -n headlamp port-forward svc/headlamp 8081:80"
+
+[tasks."kube:apps:apply"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+
+values=""
+if [ "$CLUSTER_ENV" = "local" ]; then
+  values="-f charts/openclaw/values-local.yaml"
+fi
+
+# If an OpenClawInstance already exists (from before we Helm-managed it), adopt it.
+if kubectl -n openclaw get openclawinstance openclaw >/dev/null 2>&1; then
+  kubectl -n openclaw annotate openclawinstance openclaw \
+    meta.helm.sh/release-name=openclaw \
+    meta.helm.sh/release-namespace=openclaw \
+    --overwrite
+  kubectl -n openclaw label openclawinstance openclaw \
+    app.kubernetes.io/managed-by=Helm \
+    --overwrite
+fi
+
+helm upgrade --install openclaw charts/openclaw \
+  -n openclaw \
+  --create-namespace \
+  --wait \
+  --timeout 5m \
+  $values
+'''
+
+[tasks."kube:apps:delete"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+if helm -n openclaw status openclaw >/dev/null 2>&1; then
+  helm -n openclaw uninstall openclaw
+fi
+'''
+
+[tasks."kube:apps:diff"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+
+values=""
+if [ "$CLUSTER_ENV" = "local" ]; then
+  values="-f charts/openclaw/values-local.yaml"
+fi
+
+helm template openclaw charts/openclaw \
+  -n openclaw \
+  $values | kubectl diff -n openclaw -f -
+'''
+
+[tasks."kube:openclaw:port-forward"]
+run = "kubectl -n openclaw port-forward svc/openclaw 18789:18789 18793:18793"
 
 # -----------------------------------------------------------------------------
 # Local Tasks (local-only)
@@ -175,7 +253,34 @@ run = [
   { task = "kube:wait-api" },
   { task = "kube:wait-nodes-ready" },
   { task = "kube:tools:apply" },
+  { task = "local:openclaw:secrets:apply" },
+  { task = "kube:apps:apply" },
 ]
+
+[tasks."local:openclaw:secrets:apply"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+ns=openclaw
+name=openclaw-api-keys
+
+kubectl get ns "$ns" >/dev/null 2>&1 || kubectl create ns "$ns"
+
+: "${OPENCLAW_GATEWAY_TOKEN:?Set OPENCLAW_GATEWAY_TOKEN in .env.local}"
+
+args="--from-literal=OPENCLAW_GATEWAY_TOKEN=$OPENCLAW_GATEWAY_TOKEN"
+for var in ANTHROPIC_API_KEY OPENAI_API_KEY; do
+  eval "val=\${$var-}"
+  if [ -n "${val:-}" ]; then
+    args="$args --from-literal=$var=$val"
+  fi
+done
+
+kubectl -n "$ns" create secret generic "$name" $args \
+  --dry-run=client \
+  -o yaml | kubectl apply -f -
+'''
 
 [tasks."local:down"]
 run = [
@@ -207,4 +312,21 @@ run = [
 confirm = "Delete tools/ from the CURRENT kube context?"
 run = [
   { task = "kube:tools:delete" },
+]
+
+[tasks."prod:apps:diff"]
+run = [
+  { task = "kube:apps:diff" },
+]
+
+[tasks."prod:apps:apply"]
+confirm = "Apply apps/ to the CURRENT kube context?"
+run = [
+  { task = "kube:apps:apply" },
+]
+
+[tasks."prod:apps:delete"]
+confirm = "Delete apps/ from the CURRENT kube context?"
+run = [
+  { task = "kube:apps:delete" },
 ]

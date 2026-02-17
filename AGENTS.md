@@ -54,7 +54,13 @@ mise -E local run local:reset
 
 - Tools are installed by `kube:tools:apply`.
 - Headlamp is managed by an in-repo Helm chart at `charts/headlamp/`.
+- OpenClaw Operator is installed by `kube:tools:apply` (Helm chart from GHCR OCI).
 - Avoid generating or storing credentials in the repo. Tokens are created on-demand via `kube:headlamp:token`.
+
+## Apps
+
+- Apps are applied by `kube:apps:apply`.
+- OpenClaw instance is managed by the in-repo Helm chart at `charts/openclaw/`.
 
 ## Safety
 

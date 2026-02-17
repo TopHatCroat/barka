@@ -21,6 +21,8 @@ My personal k3s cluster setup.
 KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml
 ```
 
+Tip: start from `.env.local.example`.
+
 5. `mise -E local run local:up`
 
 Production uses `mise.production.toml` and expects `KUBECONFIG` to be set in your shell.
@@ -102,3 +104,26 @@ To uninstall tools:
 ```bash
 mise -E local run kube:tools:delete
 ```
+
+### OpenClaw
+
+The OpenClaw operator is installed by `kube:tools:apply`, and the instance is managed by the in-repo Helm chart at `charts/openclaw/` via `kube:apps:apply`.
+
+Local secrets: set `OPENCLAW_GATEWAY_TOKEN` in `.env.local` (required). Provider keys are optional for boot (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`). Then run:
+
+```bash
+mise -E local run local:openclaw:secrets:apply
+mise -E local run kube:apps:apply
+```
+
+Production secrets: sync to `secret/openclaw-api-keys` in the `openclaw` namespace via Infisical (must include `OPENCLAW_GATEWAY_TOKEN`). See `tools/infisical/openclaw-api-keys.example.yaml`.
+
+Port-forward the instance service:
+
+```bash
+mise -E local run kube:openclaw:port-forward
+```
+
+Local Ingress:
+
+- URL: http://openclaw.localhost:8080/
