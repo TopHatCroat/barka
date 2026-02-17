@@ -19,6 +19,7 @@ My personal k3s cluster setup.
 
 ```dotenv
 KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml
+OPENCLAW_OWNER_PHONE=+15551234567
 ```
 
 Tip: start from `.env.local.example`.
@@ -112,6 +113,7 @@ The OpenClaw operator is installed by `kube:tools:apply`, and the instance is ma
 Local secrets: set `OPENCLAW_GATEWAY_TOKEN` in `.env.local` (required). Provider keys are optional for boot (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`). Then run:
 
 ```bash
+mise -E local run local:openclaw:user:apply
 mise -E local run local:openclaw:secrets:apply
 mise -E local run kube:apps:apply
 ```

@@ -2,16 +2,16 @@ instance:
   name: openclaw
   envFromSecretName: openclaw-api-keys
 
+  # Filled in by our mise tasks from secret/openclaw-user (OPENCLAW_OWNER_PHONE).
+  ownerPhone: ""
+
   configRaw:
     gateway:
       bind: lan
-    agents:
-      defaults:
-        model:
-          primary: "openai-codex/gpt-5.2-codex"
-        sandbox: true
-    session:
-      scope: "per-sender"
+
+    channels:
+      whatsapp:
+        dmPolicy: "pairing"
 
   storage:
     persistence:

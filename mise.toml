@@ -181,6 +181,16 @@ if [ "$CLUSTER_ENV" = "local" ]; then
   values="-f charts/openclaw/values-local.yaml"
 fi
 
+owner_phone=""
+owner_phone_b64="$(kubectl -n openclaw get secret openclaw-user -o jsonpath='{.data.OPENCLAW_OWNER_PHONE}' 2>/dev/null || true)"
+if [ -n "${owner_phone_b64:-}" ]; then
+  owner_phone="$(python3 -c 'import base64,sys; print(base64.b64decode(sys.argv[1]).decode("utf-8"))' "$owner_phone_b64" 2>/dev/null || true)"
+fi
+owner_phone_args=""
+if [ -n "${owner_phone:-}" ]; then
+  owner_phone_args="--set-string instance.ownerPhone=$owner_phone"
+fi
+
 # If an OpenClawInstance already exists (from before we Helm-managed it), adopt it.
 if kubectl -n openclaw get openclawinstance openclaw >/dev/null 2>&1; then
   kubectl -n openclaw annotate openclawinstance openclaw \
@@ -197,7 +207,8 @@ helm upgrade --install openclaw charts/openclaw \
   --create-namespace \
   --wait \
   --timeout 5m \
-  $values
+  $values \
+  $owner_phone_args
 '''
 
 [tasks."kube:apps:delete"]
@@ -222,9 +233,20 @@ if [ "$CLUSTER_ENV" = "local" ]; then
   values="-f charts/openclaw/values-local.yaml"
 fi
 
+owner_phone=""
+owner_phone_b64="$(kubectl -n openclaw get secret openclaw-user -o jsonpath='{.data.OPENCLAW_OWNER_PHONE}' 2>/dev/null || true)"
+if [ -n "${owner_phone_b64:-}" ]; then
+  owner_phone="$(python3 -c 'import base64,sys; print(base64.b64decode(sys.argv[1]).decode("utf-8"))' "$owner_phone_b64" 2>/dev/null || true)"
+fi
+owner_phone_args=""
+if [ -n "${owner_phone:-}" ]; then
+  owner_phone_args="--set-string instance.ownerPhone=$owner_phone"
+fi
+
 helm template openclaw charts/openclaw \
   -n openclaw \
-  $values | kubectl diff -n openclaw -f -
+  $values \
+  $owner_phone_args | kubectl diff -n openclaw -f -
 '''
 
 [tasks."kube:openclaw:port-forward"]
@@ -253,9 +275,33 @@ run = [
   { task = "kube:wait-api" },
   { task = "kube:wait-nodes-ready" },
   { task = "kube:tools:apply" },
+  { task = "local:openclaw:user:apply" },
   { task = "local:openclaw:secrets:apply" },
   { task = "kube:apps:apply" },
 ]
+
+[tasks."local:openclaw:user:apply"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+if [ -z "${OPENCLAW_OWNER_PHONE-}" ]; then
+  echo "OPENCLAW_OWNER_PHONE is not set; skipping openclaw-user secret" >&2
+  exit 0
+fi
+
+kubectl get ns openclaw >/dev/null 2>&1 || kubectl create ns openclaw
+
+kubectl -n openclaw create secret generic openclaw-user \
+  --from-literal=OPENCLAW_OWNER_PHONE="$OPENCLAW_OWNER_PHONE" \
+  --dry-run=client \
+  -o yaml | kubectl apply -f -
+
+# If OpenClaw is already running, restart to pick up envFrom changes.
+if kubectl -n openclaw get statefulset openclaw >/dev/null 2>&1; then
+  kubectl -n openclaw delete pod openclaw-0 --ignore-not-found=true
+fi
+'''
 
 [tasks."local:openclaw:secrets:apply"]
 run = '''
