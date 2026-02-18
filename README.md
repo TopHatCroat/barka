@@ -129,3 +129,7 @@ mise -E local run kube:openclaw:port-forward
 Local Ingress:
 
 - URL: http://openclaw.localhost:8080/
+
+Browser automation:
+
+- Local enables the Chromium sidecar (see `charts/openclaw/values-local.yaml`).

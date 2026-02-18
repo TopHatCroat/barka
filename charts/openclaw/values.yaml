@@ -26,6 +26,19 @@ instance:
       enabled: true
       size: 10Gi
 
+  chromium:
+    enabled: true
+    image:
+      repository: ghcr.io/browserless/chromium
+      tag: "v2.0.0"
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+
   networking:
     ingress:
       enabled: false
