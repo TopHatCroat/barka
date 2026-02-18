@@ -1,4 +1,4 @@
-{{- if and (eq (.Values.clusterEnv | default "") "prod") (.Values.infisical.enabled | default false) -}}
+{{- if (.Values.infisical.enabled | default false) -}}
 apiVersion: secrets.infisical.com/v1alpha1
 kind: InfisicalSecret
 metadata:
@@ -11,8 +11,8 @@ spec:
   authentication:
     universalAuth:
       secretsScope:
-        projectSlug: barka
-        envSlug: prod
+        projectSlug: {{ required "projectName is required (Infisical project slug)" .Values.projectName | quote }}
+        envSlug: {{ required "clusterEnv is required" .Values.clusterEnv | quote }}
         secretsPath: "/"
         recursive: true
       credentialsRef:

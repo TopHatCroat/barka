@@ -1,5 +1,8 @@
 clusterEnv: local
 
+# Used for Infisical projectSlug in prod.
+projectName: ""
+
 instance:
   enabled: true
   name: openclaw

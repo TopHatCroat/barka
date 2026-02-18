@@ -76,14 +76,6 @@ if [ "$CLUSTER_ENV" = "prod" ]; then
     --from-literal=clientSecret="$INFISICAL_CLIENT_SECRET" \
     --dry-run=client \
     -o yaml | kubectl apply -f -
-
-  # Apply InfisicalSecret resources for OpenClaw (from the OpenClaw chart)
-  kubectl get ns openclaw >/dev/null 2>&1 || kubectl create ns openclaw
-  helm template openclaw charts/openclaw \
-    -n openclaw \
-    --set-string clusterEnv=prod \
-    --set infisical.enabled=true \
-    --set instance.enabled=false | kubectl apply -n openclaw -f -
 fi
 '''
 
@@ -175,24 +167,14 @@ if [ "$CLUSTER_ENV" = "local" ]; then
   values="-f charts/openclaw/values-local.yaml"
 fi
 
-# If an OpenClawInstance already exists (from before we Helm-managed it), adopt it.
-if kubectl -n openclaw get openclawinstance openclaw >/dev/null 2>&1; then
-  kubectl -n openclaw annotate openclawinstance openclaw \
-    meta.helm.sh/release-name=openclaw \
-    meta.helm.sh/release-namespace=openclaw \
-    --overwrite
-  kubectl -n openclaw label openclawinstance openclaw \
-    app.kubernetes.io/managed-by=Helm \
-    --overwrite
-fi
-
 helm upgrade --install openclaw charts/openclaw \
   -n openclaw \
   --create-namespace \
   --wait \
   --timeout 5m \
   --set-string clusterEnv="$CLUSTER_ENV" \
-  --set infisical.enabled=false \
+  --set-string projectName="${PROJECT_NAME-}" \
+  --set infisical.enabled="$INFISICAL_ENABLED" \
   --set instance.enabled=true \
   $values
 '''
@@ -222,6 +204,7 @@ fi
 helm template openclaw charts/openclaw \
   -n openclaw \
   --set-string clusterEnv="$CLUSTER_ENV" \
+  --set-string projectName="${PROJECT_NAME-}" \
   --set infisical.enabled=false \
   --set instance.enabled=true \
   $values | kubectl diff -n openclaw -f -

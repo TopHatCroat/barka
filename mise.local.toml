@@ -1,3 +1,6 @@
 [env]
 CLUSTER_ENV = "local"
 _.file = ".env.local"
+
+KUBECONFIG = "dev/k3s/kubeconfig.yaml"
+PROJECT_NAME = "barka"
