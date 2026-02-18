@@ -18,6 +18,9 @@ Usage:
   openclaw-workspace-sync.sh pull   # pod -> local
   openclaw-workspace-sync.sh push   # local -> pod
 
+Notes:
+  - The workspace's .git directory is excluded from sync.
+
 Examples:
   # Using mise prod env (.env.prod) to provide kubeconfig + OPENCLAW_WORKSPACE_LOCAL_DIR
   mise -E prod exec -- scripts/openclaw-workspace-sync.sh pull
@@ -71,7 +74,7 @@ case "$cmd" in
   pull)
     mkdir -p "$local_dir"
     echo "Pulling $ns/$pod:$workspace_path -> $local_dir" >&2
-    kubectl -n "$ns" cp -c "$container" "$pod:$workspace_path/." "$local_dir"
+    kubectl -n "$ns" exec "pod/$pod" -c "$container" -- sh -c "tar -C '$workspace_path' -cf - --exclude='.git' ." | tar -C "$local_dir" -xf -
     ;;
   push)
     if [ ! -d "$local_dir" ]; then
@@ -79,6 +82,6 @@ case "$cmd" in
       exit 1
     fi
     echo "Pushing $local_dir -> $ns/$pod:$workspace_path" >&2
-    kubectl -n "$ns" cp -c "$container" "$local_dir/." "$pod:$workspace_path"
+    tar -C "$local_dir" -cf - --exclude='.git' . | kubectl -n "$ns" exec -i "pod/$pod" -c "$container" -- sh -c "tar -C '$workspace_path' -xf -"
     ;;
 esac
