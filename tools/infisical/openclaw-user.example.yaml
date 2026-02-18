@@ -1,18 +1,17 @@
-# Example InfisicalSecret CRD.
-#
+# Example: sync OpenClaw user settings into the cluster as `secret/openclaw-user`.
+# Must include `OPENCLAW_OWNER_PHONE` if you want allowFrom to be set automatically.
 # Copy this file to a new *.yaml and fill in the placeholders.
 # Files ending in .example.yaml are ignored by our mise tasks.
 
 apiVersion: secrets.infisical.com/v1alpha1
 kind: InfisicalSecret
 metadata:
-  name: example
-  namespace: default
+  name: openclaw-user
+  namespace: openclaw
 spec:
   hostAPI: https://app.infisical.com/api
-  syncConfig:
-    resyncInterval: 1m
-    instantUpdates: false
+  resyncInterval: 300
+  instantUpdates: false
 
   authentication:
     universalAuth:
@@ -26,8 +25,8 @@ spec:
         secretNamespace: infisical-operator-system
 
   managedKubeSecretReferences:
-    - secretName: example
-      secretNamespace: default
+    - secretName: openclaw-user
+      secretNamespace: openclaw
       creationPolicy: Orphan
       template:
         includeAllSecrets: true

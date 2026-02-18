@@ -28,14 +28,14 @@ exit 1
 '''
 
 [tasks."kube:wait-nodes-ready"]
-run = "kubectl wait --for=condition=Ready node/k3s --timeout=180s"
+run = "kubectl wait --for=condition=Ready nodes --all --timeout=180s"
 
 [tasks."kube:tools:apply"]
 run = '''
 #!/usr/bin/env sh
 set -eu
 
-: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
 
 headlamp_values=""
 if [ "$CLUSTER_ENV" = "local" ]; then
@@ -59,9 +59,11 @@ helm upgrade --install openclaw-operator oci://ghcr.io/openclaw-rocks/charts/ope
   --timeout 5m
 
 # Infisical (production only)
-if [ "$CLUSTER_ENV" = "production" ]; then
+if [ "$CLUSTER_ENV" = "prod" ]; then
   : "${INFISICAL_CLIENT_ID:?INFISICAL_CLIENT_ID must be set in your shell env}"
   : "${INFISICAL_CLIENT_SECRET:?INFISICAL_CLIENT_SECRET must be set in your shell env}"
+  : "${INFISICAL_PROJECT_SLUG:?INFISICAL_PROJECT_SLUG must be set}"
+  : "${INFISICAL_OPENCLAW_SECRETS_PATH:?INFISICAL_OPENCLAW_SECRETS_PATH must be set}"
 
   helm upgrade --install infisical-secrets-operator secrets-operator \
     --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
@@ -76,6 +78,65 @@ if [ "$CLUSTER_ENV" = "production" ]; then
     --from-literal=clientSecret="$INFISICAL_CLIENT_SECRET" \
     --dry-run=client \
     -o yaml | kubectl apply -f -
+
+  kubectl get ns openclaw >/dev/null 2>&1 || kubectl create ns openclaw
+
+  # Sync OpenClaw secrets from Infisical into Kubernetes
+  cat <<EOF | kubectl apply -f -
+apiVersion: secrets.infisical.com/v1alpha1
+kind: InfisicalSecret
+metadata:
+  name: openclaw-api-keys
+  namespace: openclaw
+spec:
+  hostAPI: ${INFISICAL_HOST_API}
+  resyncInterval: 60
+  instantUpdates: false
+  authentication:
+    universalAuth:
+      secretsScope:
+        projectSlug: ${INFISICAL_PROJECT_SLUG}
+        envSlug: ${INFISICAL_ENV_SLUG}
+        secretsPath: "${INFISICAL_OPENCLAW_SECRETS_PATH}"
+        recursive: true
+      credentialsRef:
+        secretName: infisical-universal-auth-credentials
+        secretNamespace: infisical-operator-system
+  managedKubeSecretReferences:
+    - secretName: openclaw-api-keys
+      secretNamespace: openclaw
+      creationPolicy: Orphan
+      template:
+        includeAllSecrets: true
+EOF
+
+  cat <<EOF | kubectl apply -f -
+apiVersion: secrets.infisical.com/v1alpha1
+kind: InfisicalSecret
+metadata:
+  name: openclaw-user
+  namespace: openclaw
+spec:
+  hostAPI: ${INFISICAL_HOST_API}
+  resyncInterval: 300
+  instantUpdates: false
+  authentication:
+    universalAuth:
+      secretsScope:
+        projectSlug: ${INFISICAL_PROJECT_SLUG}
+        envSlug: ${INFISICAL_ENV_SLUG}
+        secretsPath: "${INFISICAL_OPENCLAW_SECRETS_PATH}"
+        recursive: true
+      credentialsRef:
+        secretName: infisical-universal-auth-credentials
+        secretNamespace: infisical-operator-system
+  managedKubeSecretReferences:
+    - secretName: openclaw-user
+      secretNamespace: openclaw
+      creationPolicy: Orphan
+      template:
+        includeAllSecrets: true
+EOF
 
   # Apply any InfisicalSecret CRDs (ignore *.example.yaml)
   if ls tools/infisical/*.yaml >/dev/null 2>&1; then
@@ -94,7 +155,7 @@ run = '''
 #!/usr/bin/env sh
 set -eu
 
-: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
 
 if helm -n headlamp status headlamp >/dev/null 2>&1; then
   helm -n headlamp uninstall headlamp
@@ -104,7 +165,10 @@ if helm -n openclaw-operator-system status openclaw-operator >/dev/null 2>&1; th
   helm -n openclaw-operator-system uninstall openclaw-operator
 fi
 
-if [ "$CLUSTER_ENV" = "production" ]; then
+if [ "$CLUSTER_ENV" = "prod" ]; then
+  kubectl -n openclaw delete infisicalsecret openclaw-api-keys --ignore-not-found=true || true
+  kubectl -n openclaw delete infisicalsecret openclaw-user --ignore-not-found=true || true
+
   # Delete InfisicalSecret CRDs first (ignore *.example.yaml)
   if ls tools/infisical/*.yaml >/dev/null 2>&1; then
     for f in tools/infisical/*.yaml; do
@@ -128,7 +192,7 @@ run = '''
 #!/usr/bin/env sh
 set -eu
 
-: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
 
 headlamp_values=""
 if [ "$CLUSTER_ENV" = "local" ]; then
@@ -142,7 +206,7 @@ helm template openclaw-operator oci://ghcr.io/openclaw-rocks/charts/openclaw-ope
   -n openclaw-operator-system \
   --include-crds | kubectl diff -n openclaw-operator-system -f -
 
-if [ "$CLUSTER_ENV" = "production" ]; then
+if [ "$CLUSTER_ENV" = "prod" ]; then
   helm template infisical-secrets-operator secrets-operator \
     --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
     --version 0.10.11 \
@@ -174,7 +238,7 @@ run = '''
 #!/usr/bin/env sh
 set -eu
 
-: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
 
 values=""
 if [ "$CLUSTER_ENV" = "local" ]; then
@@ -226,7 +290,7 @@ run = '''
 #!/usr/bin/env sh
 set -eu
 
-: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|production)}"
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
 
 values=""
 if [ "$CLUSTER_ENV" = "local" ]; then
@@ -342,6 +406,15 @@ run = [
 # Production Tasks (wrappers)
 # These are just guarded entrypoints to kube:* tasks.
 # -----------------------------------------------------------------------------
+
+[tasks."prod:up"]
+confirm = "Apply tools + apps to the CURRENT kube context?"
+run = [
+  { task = "kube:wait-api" },
+  { task = "kube:wait-nodes-ready" },
+  { task = "kube:tools:apply" },
+  { task = "kube:apps:apply" },
+]
 
 [tasks."prod:tools:diff"]
 run = [

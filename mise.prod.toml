@@ -1,0 +1,16 @@
+[env]
+CLUSTER_ENV = "prod"
+_.file = { path = ".env.prod", redact = true }
+
+KUBECONFIG = "prod/k3s/kubeconfig.yaml"
+
+INFISICAL_CLIENT_ID = { required = "Set INFISICAL_CLIENT_ID in your shell env (Infisical Universal Auth)" }
+INFISICAL_CLIENT_SECRET = { required = "Set INFISICAL_CLIENT_SECRET in your shell env (Infisical Universal Auth)" }
+
+# Infisical project scope for syncing k8s secrets (OpenClaw)
+INFISICAL_HOST_API = "https://app.infisical.com/api"
+INFISICAL_PROJECT_SLUG = "barka"
+INFISICAL_ENV_SLUG = "prod"
+
+# Where OpenClaw secrets live in Infisical
+INFISICAL_OPENCLAW_SECRETS_PATH = "/"

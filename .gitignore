@@ -4,6 +4,12 @@ dev/k3s/kubeconfig/*
 !dev/k3s/kubeconfig/.gitkeep
 dev/k3s/kubeconfig.yaml
 
+# Prod k3s env
+prod/k3s/kubeconfig/*
+!prod/k3s/kubeconfig/.gitkeep
+prod/k3s/kubeconfig.yaml
+
 # Local env
 .env
 .env.local
+.env.prod

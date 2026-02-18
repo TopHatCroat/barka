@@ -10,9 +10,8 @@ metadata:
   namespace: openclaw
 spec:
   hostAPI: https://app.infisical.com/api
-  syncConfig:
-    resyncInterval: 1m
-    instantUpdates: false
+  resyncInterval: 60
+  instantUpdates: false
 
   authentication:
     universalAuth:
