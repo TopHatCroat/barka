@@ -1,32 +1,27 @@
-# Example: sync OpenClaw keys into the cluster as `secret/openclaw-api-keys`.
-# Must include `OPENCLAW_GATEWAY_TOKEN` when gateway.bind=lan.
-# Copy this file to a new *.yaml and fill in the placeholders.
-# Files ending in .example.yaml are ignored by our mise tasks.
-
+{{- if and (eq (.Values.clusterEnv | default "") "prod") (.Values.infisical.enabled | default false) -}}
 apiVersion: secrets.infisical.com/v1alpha1
 kind: InfisicalSecret
 metadata:
-  name: openclaw-api-keys
-  namespace: openclaw
+  name: openclaw-secrets
+  namespace: {{ .Release.Namespace }}
 spec:
   hostAPI: https://app.infisical.com/api
   resyncInterval: 60
   instantUpdates: false
-
   authentication:
     universalAuth:
       secretsScope:
-        projectSlug: REPLACE_ME_PROJECT_SLUG
+        projectSlug: barka
         envSlug: prod
         secretsPath: "/"
         recursive: true
       credentialsRef:
         secretName: infisical-universal-auth-credentials
         secretNamespace: infisical-operator-system
-
   managedKubeSecretReferences:
-    - secretName: openclaw-api-keys
-      secretNamespace: openclaw
+    - secretName: openclaw-secrets
+      secretNamespace: {{ .Release.Namespace }}
       creationPolicy: Orphan
       template:
         includeAllSecrets: true
+{{- end }}

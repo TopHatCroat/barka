@@ -7,6 +7,7 @@ This repo uses k3s (local) and plain kubectl (all envs), with task entrypoints m
 - Prefer mise tasks over ad-hoc commands.
 - Use mise environments (`-E <name>`) to select a kubeconfig/cluster target.
 - Keep tasks env-agnostic unless they inherently require local Docker/k3s lifecycle control.
+- Use `.yaml` extension for chart template files
 
 ## Task Naming
 
@@ -33,8 +34,7 @@ Infisical (production secrets):
 
 InfisicalSecret CRDs:
 
-- Put `InfisicalSecret` resources in `tools/infisical/`.
-- Files ending in `.example.yaml` are ignored by the mise tasks.
+- OpenClaw's `InfisicalSecret` resource is rendered from `charts/openclaw/templates/infisical.yaml` and applied by `kube:tools:apply` in `prod`.
 
 Common commands:
 

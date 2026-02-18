@@ -1,3 +1,4 @@
+{{- if .Values.instance.enabled }}
 apiVersion: openclaw.rocks/v1alpha1
 kind: OpenClawInstance
 metadata:
@@ -6,22 +7,11 @@ metadata:
 spec:
   config:
     raw:
-{{- $cfg := deepCopy .Values.instance.configRaw -}}
-{{- if .Values.instance.ownerPhone }}
-{{- $channels := (get $cfg "channels") | default (dict) -}}
-{{- $_ := set $cfg "channels" $channels -}}
-{{- $wa := (get $channels "whatsapp") | default (dict) -}}
-{{- $_ := set $channels "whatsapp" $wa -}}
-{{- $_ := set $wa "allowFrom" (list .Values.instance.ownerPhone) -}}
-{{- end }}
-{{ toYaml $cfg | nindent 6 }}
+{{ toYaml .Values.instance.configRaw | nindent 6 }}
 
   envFrom:
     - secretRef:
         name: {{ .Values.instance.envFromSecretName }}
-    - secretRef:
-        name: openclaw-user
-        optional: true
 
   storage:
 {{ toYaml .Values.instance.storage | nindent 4 }}
@@ -36,3 +26,5 @@ spec:
 
   security:
 {{ toYaml .Values.instance.security | nindent 4 }}
+
+{{- end }}

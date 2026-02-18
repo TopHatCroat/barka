@@ -62,8 +62,6 @@ helm upgrade --install openclaw-operator oci://ghcr.io/openclaw-rocks/charts/ope
 if [ "$CLUSTER_ENV" = "prod" ]; then
   : "${INFISICAL_CLIENT_ID:?INFISICAL_CLIENT_ID must be set in your shell env}"
   : "${INFISICAL_CLIENT_SECRET:?INFISICAL_CLIENT_SECRET must be set in your shell env}"
-  : "${INFISICAL_PROJECT_SLUG:?INFISICAL_PROJECT_SLUG must be set}"
-  : "${INFISICAL_OPENCLAW_SECRETS_PATH:?INFISICAL_OPENCLAW_SECRETS_PATH must be set}"
 
   helm upgrade --install infisical-secrets-operator secrets-operator \
     --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
@@ -79,74 +77,13 @@ if [ "$CLUSTER_ENV" = "prod" ]; then
     --dry-run=client \
     -o yaml | kubectl apply -f -
 
+  # Apply InfisicalSecret resources for OpenClaw (from the OpenClaw chart)
   kubectl get ns openclaw >/dev/null 2>&1 || kubectl create ns openclaw
-
-  # Sync OpenClaw secrets from Infisical into Kubernetes
-  cat <<EOF | kubectl apply -f -
-apiVersion: secrets.infisical.com/v1alpha1
-kind: InfisicalSecret
-metadata:
-  name: openclaw-api-keys
-  namespace: openclaw
-spec:
-  hostAPI: ${INFISICAL_HOST_API}
-  resyncInterval: 60
-  instantUpdates: false
-  authentication:
-    universalAuth:
-      secretsScope:
-        projectSlug: ${INFISICAL_PROJECT_SLUG}
-        envSlug: ${INFISICAL_ENV_SLUG}
-        secretsPath: "${INFISICAL_OPENCLAW_SECRETS_PATH}"
-        recursive: true
-      credentialsRef:
-        secretName: infisical-universal-auth-credentials
-        secretNamespace: infisical-operator-system
-  managedKubeSecretReferences:
-    - secretName: openclaw-api-keys
-      secretNamespace: openclaw
-      creationPolicy: Orphan
-      template:
-        includeAllSecrets: true
-EOF
-
-  cat <<EOF | kubectl apply -f -
-apiVersion: secrets.infisical.com/v1alpha1
-kind: InfisicalSecret
-metadata:
-  name: openclaw-user
-  namespace: openclaw
-spec:
-  hostAPI: ${INFISICAL_HOST_API}
-  resyncInterval: 300
-  instantUpdates: false
-  authentication:
-    universalAuth:
-      secretsScope:
-        projectSlug: ${INFISICAL_PROJECT_SLUG}
-        envSlug: ${INFISICAL_ENV_SLUG}
-        secretsPath: "${INFISICAL_OPENCLAW_SECRETS_PATH}"
-        recursive: true
-      credentialsRef:
-        secretName: infisical-universal-auth-credentials
-        secretNamespace: infisical-operator-system
-  managedKubeSecretReferences:
-    - secretName: openclaw-user
-      secretNamespace: openclaw
-      creationPolicy: Orphan
-      template:
-        includeAllSecrets: true
-EOF
-
-  # Apply any InfisicalSecret CRDs (ignore *.example.yaml)
-  if ls tools/infisical/*.yaml >/dev/null 2>&1; then
-    for f in tools/infisical/*.yaml; do
-      case "$f" in
-        *.example.yaml) continue ;;
-      esac
-      kubectl apply -f "$f"
-    done
-  fi
+  helm template openclaw charts/openclaw \
+    -n openclaw \
+    --set-string clusterEnv=prod \
+    --set infisical.enabled=true \
+    --set instance.enabled=false | kubectl apply -n openclaw -f -
 fi
 '''
 
@@ -166,17 +103,13 @@ if helm -n openclaw-operator-system status openclaw-operator >/dev/null 2>&1; th
 fi
 
 if [ "$CLUSTER_ENV" = "prod" ]; then
-  kubectl -n openclaw delete infisicalsecret openclaw-api-keys --ignore-not-found=true || true
-  kubectl -n openclaw delete infisicalsecret openclaw-user --ignore-not-found=true || true
-
-  # Delete InfisicalSecret CRDs first (ignore *.example.yaml)
-  if ls tools/infisical/*.yaml >/dev/null 2>&1; then
-    for f in tools/infisical/*.yaml; do
-      case "$f" in
-        *.example.yaml) continue ;;
-      esac
-      kubectl delete -f "$f" --ignore-not-found=true || true
-    done
+  # Delete InfisicalSecret resources for OpenClaw (from the OpenClaw chart)
+  if kubectl get ns openclaw >/dev/null 2>&1; then
+    helm template openclaw charts/openclaw \
+      -n openclaw \
+      --set-string clusterEnv=prod \
+      --set infisical.enabled=true \
+      --set instance.enabled=false | kubectl delete -n openclaw -f - --ignore-not-found=true || true
   fi
 
   if helm -n infisical-operator-system status infisical-secrets-operator >/dev/null 2>&1; then
@@ -212,15 +145,12 @@ if [ "$CLUSTER_ENV" = "prod" ]; then
     --version 0.10.11 \
     -n infisical-operator-system | kubectl diff -n infisical-operator-system -f -
 
-  # Diff any InfisicalSecret CRDs (ignore *.example.yaml)
-  if ls tools/infisical/*.yaml >/dev/null 2>&1; then
-    for f in tools/infisical/*.yaml; do
-      case "$f" in
-        *.example.yaml) continue ;;
-      esac
-      kubectl diff -f "$f" || true
-    done
-  fi
+  # Diff InfisicalSecret resources for OpenClaw (from the OpenClaw chart)
+  helm template openclaw charts/openclaw \
+    -n openclaw \
+    --set-string clusterEnv=prod \
+    --set infisical.enabled=true \
+    --set instance.enabled=false | kubectl diff -n openclaw -f - || true
 fi
 '''
 
@@ -245,16 +175,6 @@ if [ "$CLUSTER_ENV" = "local" ]; then
   values="-f charts/openclaw/values-local.yaml"
 fi
 
-owner_phone=""
-owner_phone_b64="$(kubectl -n openclaw get secret openclaw-user -o jsonpath='{.data.OPENCLAW_OWNER_PHONE}' 2>/dev/null || true)"
-if [ -n "${owner_phone_b64:-}" ]; then
-  owner_phone="$(python3 -c 'import base64,sys; print(base64.b64decode(sys.argv[1]).decode("utf-8"))' "$owner_phone_b64" 2>/dev/null || true)"
-fi
-owner_phone_args=""
-if [ -n "${owner_phone:-}" ]; then
-  owner_phone_args="--set-string instance.ownerPhone=$owner_phone"
-fi
-
 # If an OpenClawInstance already exists (from before we Helm-managed it), adopt it.
 if kubectl -n openclaw get openclawinstance openclaw >/dev/null 2>&1; then
   kubectl -n openclaw annotate openclawinstance openclaw \
@@ -271,8 +191,10 @@ helm upgrade --install openclaw charts/openclaw \
   --create-namespace \
   --wait \
   --timeout 5m \
-  $values \
-  $owner_phone_args
+  --set-string clusterEnv="$CLUSTER_ENV" \
+  --set infisical.enabled=false \
+  --set instance.enabled=true \
+  $values
 '''
 
 [tasks."kube:apps:delete"]
@@ -297,20 +219,39 @@ if [ "$CLUSTER_ENV" = "local" ]; then
   values="-f charts/openclaw/values-local.yaml"
 fi
 
-owner_phone=""
-owner_phone_b64="$(kubectl -n openclaw get secret openclaw-user -o jsonpath='{.data.OPENCLAW_OWNER_PHONE}' 2>/dev/null || true)"
-if [ -n "${owner_phone_b64:-}" ]; then
-  owner_phone="$(python3 -c 'import base64,sys; print(base64.b64decode(sys.argv[1]).decode("utf-8"))' "$owner_phone_b64" 2>/dev/null || true)"
-fi
-owner_phone_args=""
-if [ -n "${owner_phone:-}" ]; then
-  owner_phone_args="--set-string instance.ownerPhone=$owner_phone"
-fi
-
 helm template openclaw charts/openclaw \
   -n openclaw \
-  $values \
-  $owner_phone_args | kubectl diff -n openclaw -f -
+  --set-string clusterEnv="$CLUSTER_ENV" \
+  --set infisical.enabled=false \
+  --set instance.enabled=true \
+  $values | kubectl diff -n openclaw -f -
+'''
+
+[tasks."kube:openclaw:wait-secrets"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+ns=openclaw
+key=OPENCLAW_GATEWAY_TOKEN
+secret=openclaw-secrets
+
+tries=180
+while [ "$tries" -gt 0 ]; do
+  if kubectl -n "$ns" get secret "$secret" >/dev/null 2>&1; then
+    val_b64="$(kubectl -n "$ns" get secret "$secret" -o jsonpath="{.data.$key}" 2>/dev/null || true)"
+    if [ -n "${val_b64:-}" ]; then
+      exit 0
+    fi
+  fi
+  tries=$((tries - 1))
+  sleep 1
+done
+
+echo "Timed out waiting for secret $ns/$secret to contain key $key" >&2
+kubectl -n "$ns" get infisicalsecrets 2>/dev/null || true
+kubectl -n "$ns" get secrets 2>/dev/null || true
+exit 1
 '''
 
 [tasks."kube:openclaw:port-forward"]
@@ -339,33 +280,9 @@ run = [
   { task = "kube:wait-api" },
   { task = "kube:wait-nodes-ready" },
   { task = "kube:tools:apply" },
-  { task = "local:openclaw:user:apply" },
   { task = "local:openclaw:secrets:apply" },
   { task = "kube:apps:apply" },
 ]
-
-[tasks."local:openclaw:user:apply"]
-run = '''
-#!/usr/bin/env sh
-set -eu
-
-if [ -z "${OPENCLAW_OWNER_PHONE-}" ]; then
-  echo "OPENCLAW_OWNER_PHONE is not set; skipping openclaw-user secret" >&2
-  exit 0
-fi
-
-kubectl get ns openclaw >/dev/null 2>&1 || kubectl create ns openclaw
-
-kubectl -n openclaw create secret generic openclaw-user \
-  --from-literal=OPENCLAW_OWNER_PHONE="$OPENCLAW_OWNER_PHONE" \
-  --dry-run=client \
-  -o yaml | kubectl apply -f -
-
-# If OpenClaw is already running, restart to pick up envFrom changes.
-if kubectl -n openclaw get statefulset openclaw >/dev/null 2>&1; then
-  kubectl -n openclaw delete pod openclaw-0 --ignore-not-found=true
-fi
-'''
 
 [tasks."local:openclaw:secrets:apply"]
 run = '''
@@ -373,14 +290,14 @@ run = '''
 set -eu
 
 ns=openclaw
-name=openclaw-api-keys
+name=openclaw-secrets
 
 kubectl get ns "$ns" >/dev/null 2>&1 || kubectl create ns "$ns"
 
 : "${OPENCLAW_GATEWAY_TOKEN:?Set OPENCLAW_GATEWAY_TOKEN in .env.local}"
 
 args="--from-literal=OPENCLAW_GATEWAY_TOKEN=$OPENCLAW_GATEWAY_TOKEN"
-for var in ANTHROPIC_API_KEY OPENAI_API_KEY; do
+for var in OPENAI_API_KEY OPENCLAW_OWNER_PHONE; do
   eval "val=\${$var-}"
   if [ -n "${val:-}" ]; then
     args="$args --from-literal=$var=$val"
@@ -390,6 +307,11 @@ done
 kubectl -n "$ns" create secret generic "$name" $args \
   --dry-run=client \
   -o yaml | kubectl apply -f -
+
+# If OpenClaw is already running, restart to pick up env changes.
+if kubectl -n openclaw get statefulset openclaw >/dev/null 2>&1; then
+  kubectl -n openclaw delete pod openclaw-0 --ignore-not-found=true
+fi
 '''
 
 [tasks."local:down"]
@@ -413,6 +335,7 @@ run = [
   { task = "kube:wait-api" },
   { task = "kube:wait-nodes-ready" },
   { task = "kube:tools:apply" },
+  { task = "kube:openclaw:wait-secrets" },
   { task = "kube:apps:apply" },
 ]
 
@@ -441,6 +364,7 @@ run = [
 [tasks."prod:apps:apply"]
 confirm = "Apply apps/ to the CURRENT kube context?"
 run = [
+  { task = "kube:openclaw:wait-secrets" },
   { task = "kube:apps:apply" },
 ]
 

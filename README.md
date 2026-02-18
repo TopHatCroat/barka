@@ -37,7 +37,7 @@ export INFISICAL_CLIENT_SECRET=...
 mise -E production run prod:tools:apply
 ```
 
-To sync application secrets in production, add `InfisicalSecret` CRDs under `tools/infisical/` (ignore the committed `tools/infisical/infisicalsecret.example.yaml`).
+Production secrets are synced from Infisical by an `InfisicalSecret` resource rendered from `charts/openclaw/templates/infisical.yaml`.
 
 ### Local k3s (Docker Desktop, single-node)
 
@@ -110,15 +110,14 @@ mise -E local run kube:tools:delete
 
 The OpenClaw operator is installed by `kube:tools:apply`, and the instance is managed by the in-repo Helm chart at `charts/openclaw/` via `kube:apps:apply`.
 
-Local secrets: set `OPENCLAW_GATEWAY_TOKEN` in `.env.local` (required). Provider keys are optional for boot (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`). Then run:
+Local secrets: set `OPENCLAW_GATEWAY_TOKEN` in `.env.local` (required). `OPENCLAW_OWNER_PHONE` and `OPENAI_API_KEY` are optional. Then run:
 
 ```bash
-mise -E local run local:openclaw:user:apply
 mise -E local run local:openclaw:secrets:apply
 mise -E local run kube:apps:apply
 ```
 
-Production secrets: sync to `secret/openclaw-api-keys` in the `openclaw` namespace via Infisical (must include `OPENCLAW_GATEWAY_TOKEN`). See `tools/infisical/openclaw-api-keys.example.yaml`.
+Production secrets: Infisical syncs into `secret/openclaw-secrets` in the `openclaw` namespace (must include `OPENCLAW_GATEWAY_TOKEN`).
 
 Port-forward the instance service:
 

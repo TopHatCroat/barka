@@ -1,9 +1,9 @@
-instance:
-  name: openclaw
-  envFromSecretName: openclaw-api-keys
+clusterEnv: local
 
-  # Filled in by our mise tasks from secret/openclaw-user (OPENCLAW_OWNER_PHONE).
-  ownerPhone: ""
+instance:
+  enabled: true
+  name: openclaw
+  envFromSecretName: openclaw-secrets
 
   configRaw:
     gateway:
@@ -19,7 +19,11 @@ instance:
 
     channels:
       whatsapp:
-        dmPolicy: "pairing"
+        dmPolicy: "allowlist"
+        # OpenClaw config supports env interpolation (same mechanism as OPENCLAW_GATEWAY_TOKEN).
+        # The value comes from secret/openclaw-secrets as OPENCLAW_OWNER_PHONE.
+        allowFrom:
+          - "${OPENCLAW_OWNER_PHONE}"
 
   storage:
     persistence:
@@ -27,7 +31,7 @@ instance:
       size: 10Gi
 
   chromium:
-    enabled: true
+    enabled: false
     image:
       repository: ghcr.io/browserless/chromium
       tag: "v2.0.0"
@@ -52,3 +56,7 @@ instance:
   security:
     networkPolicy:
       allowedIngressNamespaces: []
+
+infisical:
+  # Only enabled in prod via mise tasks.
+  enabled: false
