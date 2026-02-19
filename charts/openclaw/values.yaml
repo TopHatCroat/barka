@@ -31,6 +31,12 @@ instance:
     tools:
       profile: "full"
       web:
+        fetch:
+          # Optional Firecrawl fallback for better extraction.
+          firecrawl:
+            apiKey: "${FIRECRAWL_API_KEY}"
+            baseUrl: "https://api.firecrawl.dev"
+
         search:
           enabled: true
           provider: "perplexity"

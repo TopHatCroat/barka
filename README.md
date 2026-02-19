@@ -20,6 +20,12 @@ Within `kube:*`:
 - `kube:operators:*`: install/uninstall/diff cluster operators (Headlamp, OpenClaw operator, Infisical operator)
 - `kube:secrets:*`: prod-only secret sync resources (InfisicalSecret)
 
+`kube:tools:*` is a convenience wrapper:
+
+- `kube:tools:apply` runs `kube:operators:apply` then `kube:secrets:apply`
+- `kube:tools:diff` runs `kube:operators:diff` then `kube:secrets:diff`
+- `kube:tools:delete` runs `kube:secrets:delete` then `kube:operators:delete`
+
 
 ## Local Development
 
@@ -124,6 +130,8 @@ The OpenClaw operator is installed by `kube:tools:apply`, and the instance is ma
 Local secrets: set `OPENCLAW_GATEWAY_TOKEN` in `.env.local` (required). `OPENCLAW_OWNER_PHONE` and `OPENAI_API_KEY` are optional. Then run:
 
 Web search (optional): set `PERPLEXITY_API_KEY` (or `OPENROUTER_API_KEY`) in `.env.local`.
+
+Web fetch fallback (optional): set `FIRECRAWL_API_KEY`.
 
 ```bash
 mise -E local run local:openclaw:secrets:apply
