@@ -12,3 +12,5 @@ prod/
 .env
 .env.local
 .env.prod
+
+PLAN.md

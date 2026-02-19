@@ -32,10 +32,12 @@ instance:
       profile: "full"
       web:
         fetch:
+          enabled: true
           # Optional Firecrawl fallback for better extraction.
-          firecrawl:
-            apiKey: "${FIRECRAWL_API_KEY}"
-            baseUrl: "https://api.firecrawl.dev"
+          # Disabled until: https://github.com/openclaw/openclaw/issues/20442
+          # firecrawl:
+            # apiKey: "${FIRECRAWL_API_KEY}"
+            # baseUrl: "https://api.firecrawl.dev"
 
         search:
           enabled: true
