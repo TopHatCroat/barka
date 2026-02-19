@@ -112,6 +112,8 @@ The OpenClaw operator is installed by `kube:tools:apply`, and the instance is ma
 
 Local secrets: set `OPENCLAW_GATEWAY_TOKEN` in `.env.local` (required). `OPENCLAW_OWNER_PHONE` and `OPENAI_API_KEY` are optional. Then run:
 
+Web search (optional): set `PERPLEXITY_API_KEY` (or `OPENROUTER_API_KEY`) in `.env.local`.
+
 ```bash
 mise -E local run local:openclaw:secrets:apply
 mise -E local run kube:apps:apply

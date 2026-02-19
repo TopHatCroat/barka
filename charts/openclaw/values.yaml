@@ -28,6 +28,18 @@ instance:
         allowFrom:
           - "${OPENCLAW_OWNER_PHONE}"
 
+    tools:
+      profile: "full"
+      web:
+        search:
+          enabled: true
+          provider: "perplexity"
+          maxResults: 6
+          perplexity:
+            # Uses PERPLEXITY_API_KEY from the environment unless apiKey is set here.
+            baseUrl: "https://api.perplexity.ai"
+            model: "perplexity/sonar-pro"
+
   storage:
     persistence:
       enabled: true
