@@ -30,7 +30,7 @@ exit 1
 [tasks."kube:wait-nodes-ready"]
 run = "kubectl wait --for=condition=Ready nodes --all --timeout=180s"
 
-[tasks."kube:tools:apply"]
+[tasks."kube:operators:apply"]
 run = '''
 #!/usr/bin/env sh
 set -eu
@@ -79,7 +79,59 @@ if [ "$CLUSTER_ENV" = "prod" ]; then
 fi
 '''
 
-[tasks."kube:tools:delete"]
+[tasks."kube:secrets:apply"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
+
+if [ "$CLUSTER_ENV" != "prod" ]; then
+  exit 0
+fi
+
+: "${PROJECT_NAME:?PROJECT_NAME must be set (Infisical project slug)}"
+
+kubectl get ns openclaw >/dev/null 2>&1 || kubectl create ns openclaw
+
+helm template openclaw charts/openclaw \
+  -n openclaw \
+  --set-string clusterEnv=prod \
+  --set-string projectName="$PROJECT_NAME" \
+  --set infisical.enabled=true \
+  --set instance.enabled=false | kubectl apply -n openclaw -f -
+'''
+
+[tasks."kube:tools:apply"]
+run = [
+  { task = "kube:operators:apply" },
+  { task = "kube:secrets:apply" },
+]
+
+[tasks."kube:secrets:delete"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
+
+if [ "$CLUSTER_ENV" != "prod" ]; then
+  exit 0
+fi
+
+: "${PROJECT_NAME:?PROJECT_NAME must be set (Infisical project slug)}"
+
+if kubectl get ns openclaw >/dev/null 2>&1; then
+  helm template openclaw charts/openclaw \
+    -n openclaw \
+    --set-string clusterEnv=prod \
+    --set-string projectName="$PROJECT_NAME" \
+    --set infisical.enabled=true \
+    --set instance.enabled=false | kubectl delete -n openclaw -f - --ignore-not-found=true || true
+fi
+'''
+
+[tasks."kube:operators:delete"]
 run = '''
 #!/usr/bin/env sh
 set -eu
@@ -95,15 +147,6 @@ if helm -n openclaw-operator-system status openclaw-operator >/dev/null 2>&1; th
 fi
 
 if [ "$CLUSTER_ENV" = "prod" ]; then
-  # Delete InfisicalSecret resources for OpenClaw (from the OpenClaw chart)
-  if kubectl get ns openclaw >/dev/null 2>&1; then
-    helm template openclaw charts/openclaw \
-      -n openclaw \
-      --set-string clusterEnv=prod \
-      --set infisical.enabled=true \
-      --set instance.enabled=false | kubectl delete -n openclaw -f - --ignore-not-found=true || true
-  fi
-
   if helm -n infisical-operator-system status infisical-secrets-operator >/dev/null 2>&1; then
     helm -n infisical-operator-system uninstall infisical-secrets-operator
   fi
@@ -112,7 +155,13 @@ if [ "$CLUSTER_ENV" = "prod" ]; then
 fi
 '''
 
-[tasks."kube:tools:diff"]
+[tasks."kube:tools:delete"]
+run = [
+  { task = "kube:secrets:delete" },
+  { task = "kube:operators:delete" },
+]
+
+[tasks."kube:operators:diff"]
 run = '''
 #!/usr/bin/env sh
 set -eu
@@ -127,7 +176,7 @@ fi
 helm template headlamp charts/headlamp -n headlamp $headlamp_values | kubectl diff -f -
 
 helm template openclaw-operator oci://ghcr.io/openclaw-rocks/charts/openclaw-operator \
-  --version 0.6.0 \
+  --version 0.9.13 \
   -n openclaw-operator-system \
   --include-crds | kubectl diff -n openclaw-operator-system -f -
 
@@ -136,15 +185,35 @@ if [ "$CLUSTER_ENV" = "prod" ]; then
     --repo https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/ \
     --version 0.10.11 \
     -n infisical-operator-system | kubectl diff -n infisical-operator-system -f -
-
-  # Diff InfisicalSecret resources for OpenClaw (from the OpenClaw chart)
-  helm template openclaw charts/openclaw \
-    -n openclaw \
-    --set-string clusterEnv=prod \
-    --set infisical.enabled=true \
-    --set instance.enabled=false | kubectl diff -n openclaw -f - || true
 fi
 '''
+
+[tasks."kube:secrets:diff"]
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+: "${CLUSTER_ENV:?CLUSTER_ENV must be set (local|prod)}"
+
+if [ "$CLUSTER_ENV" != "prod" ]; then
+  exit 0
+fi
+
+: "${PROJECT_NAME:?PROJECT_NAME must be set (Infisical project slug)}"
+
+helm template openclaw charts/openclaw \
+  -n openclaw \
+  --set-string clusterEnv=prod \
+  --set-string projectName="$PROJECT_NAME" \
+  --set infisical.enabled=true \
+  --set instance.enabled=false | kubectl diff -n openclaw -f - || true
+'''
+
+[tasks."kube:tools:diff"]
+run = [
+  { task = "kube:operators:diff" },
+  { task = "kube:secrets:diff" },
+]
 
 [tasks."kube:kubectl"]
 run = "kubectl"

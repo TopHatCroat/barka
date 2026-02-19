@@ -2,10 +2,8 @@
 CLUSTER_ENV = "prod"
 _.file = { path = ".env.prod", redact = true }
 
-KUBECONFIG = "prod/k3s/kubeconfig/kubeconfig.yaml"
+KUBECONFIG = { required = "Set KUBECONFIG to your prod kubeconfig path (recommended: outside the repo, e.g. ~/.kubeconfigs/barka.yaml)" }
 
 PROJECT_NAME = "barka"
-
-INFISICAL_ENABLED = true
 INFISICAL_CLIENT_ID = { required = "Set INFISICAL_CLIENT_ID in your shell env (Infisical Universal Auth)" }
 INFISICAL_CLIENT_SECRET = { required = "Set INFISICAL_CLIENT_SECRET in your shell env (Infisical Universal Auth)" }

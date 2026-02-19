@@ -25,12 +25,12 @@ This repo uses k3s (local) and plain kubectl (all envs), with task entrypoints m
 ## Production Environment
 
 - Prod mise env config: `mise.prod.toml`
-- Prod kubeconfig: `prod/k3s/kubeconfig/kubeconfig.yaml`
+- Provide `KUBECONFIG` via `.env.prod` or your shell environment (recommended: outside this repo)
 
 Infisical (production secrets):
 
 - `kube:tools:apply` will install the Infisical Secrets Operator and create/update the Universal Auth credentials secret.
-- You must export `INFISICAL_CLIENT_ID` and `INFISICAL_CLIENT_SECRET` in your shell before running production tasks.
+- Provide `INFISICAL_CLIENT_ID` and `INFISICAL_CLIENT_SECRET` via `.env.prod` or your shell environment before running production tasks.
 
 InfisicalSecret CRDs:
 

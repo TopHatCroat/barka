@@ -9,6 +9,17 @@ My personal k3s cluster setup.
 * `./tools/` cluster tools (non-Helm manifests)
 * `./apps/` apps running in the cluster
 
+## Task Naming
+
+- `kube:*`: cluster-agnostic operations using plain `kubectl`/`helm` against the selected mise environment (`KUBECONFIG`)
+- `local:*`: local-only lifecycle tasks (k3s-in-Docker)
+- `prod:*`: prod wrappers around `kube:*` tasks with guardrails (e.g. `confirm`)
+
+Within `kube:*`:
+
+- `kube:operators:*`: install/uninstall/diff cluster operators (Headlamp, OpenClaw operator, Infisical operator)
+- `kube:secrets:*`: prod-only secret sync resources (InfisicalSecret)
+
 
 ## Local Development
 
@@ -20,23 +31,24 @@ My personal k3s cluster setup.
 ```dotenv
 KUBECONFIG=dev/k3s/kubeconfig/kubeconfig.yaml
 OPENCLAW_OWNER_PHONE=+15551234567
+OPENCLAW_GATEWAY_TOKEN=REPLACE_ME
 ```
 
 Tip: start from `.env.local.example`.
 
 5. `mise -E local run local:up`
 
-Prod uses `mise.prod.toml` (loads `.env.prod`) and defaults `KUBECONFIG` to `prod/k3s/kubeconfig/kubeconfig.yaml`.
+Prod uses `mise.prod.toml` (loads `.env.prod`). Set `KUBECONFIG` in `.env.prod` (recommended: point at a kubeconfig outside this repo, e.g. `~/kubeconfigs/barka.yaml`).
 
 Prod (tools install via Helm; Infisical via Universal Auth):
 
+- Put `KUBECONFIG`, `INFISICAL_CLIENT_ID`, and `INFISICAL_CLIENT_SECRET` in `.env.prod` (recommended) or export them in your shell.
+
 ```bash
-export INFISICAL_CLIENT_ID=...
-export INFISICAL_CLIENT_SECRET=...
 mise -E prod run prod:tools:apply
 ```
 
-Production secrets are synced from Infisical by an `InfisicalSecret` resource rendered from `charts/openclaw/templates/infisical.yaml`.
+Prod secrets are synced from Infisical by an `InfisicalSecret` resource rendered from `charts/openclaw/templates/infisical.yaml`.
 
 ### Local k3s (Docker Desktop, single-node)
 
@@ -96,13 +108,13 @@ mise -E prod run kube:headlamp:port-forward
 Login token (creates a short-lived token):
 
 ```bash
-mise -E local run kube:headlamp:token
+mise -E <env> run kube:headlamp:token
 ```
 
 To uninstall tools:
 
 ```bash
-mise -E local run kube:tools:delete
+mise -E <env> run kube:tools:delete
 ```
 
 ### OpenClaw

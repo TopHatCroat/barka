@@ -8,7 +8,7 @@ serviceAccount:
   name: headlamp-admin
 
 rbac:
-  clusterRole: cluster-admin
+  clusterRole: view
 
 service:
   type: ClusterIP
