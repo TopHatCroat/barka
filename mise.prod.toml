@@ -2,7 +2,7 @@
 CLUSTER_ENV = "prod"
 _.file = { path = ".env.prod", redact = true }
 
-KUBECONFIG = "prod/k3s/kubeconfig.yaml"
+KUBECONFIG = "prod/k3s/kubeconfig/kubeconfig.yaml"
 
 PROJECT_NAME = "barka"
 

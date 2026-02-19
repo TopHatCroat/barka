@@ -26,15 +26,14 @@ Tip: start from `.env.local.example`.
 
 5. `mise -E local run local:up`
 
-Production uses `mise.production.toml` and expects `KUBECONFIG` to be set in your shell.
+Prod uses `mise.prod.toml` (loads `.env.prod`) and defaults `KUBECONFIG` to `prod/k3s/kubeconfig/kubeconfig.yaml`.
 
-Production (tools install via Helm; Infisical via Universal Auth):
+Prod (tools install via Helm; Infisical via Universal Auth):
 
 ```bash
-export KUBECONFIG=~/kubeconfigs/production.yaml
 export INFISICAL_CLIENT_ID=...
 export INFISICAL_CLIENT_SECRET=...
-mise -E production run prod:tools:apply
+mise -E prod run prod:tools:apply
 ```
 
 Production secrets are synced from Infisical by an `InfisicalSecret` resource rendered from `charts/openclaw/templates/infisical.yaml`.
@@ -88,10 +87,10 @@ Headlamp is installed by `mise -E local run local:up` from `charts/headlamp/`.
 
 URL: http://headlamp.localhost:8080/
 
-Production: Headlamp has no Ingress; use port-forward:
+Prod: Headlamp has no Ingress; use port-forward:
 
 ```bash
-mise -E production run kube:headlamp:port-forward
+mise -E prod run kube:headlamp:port-forward
 ```
 
 Login token (creates a short-lived token):

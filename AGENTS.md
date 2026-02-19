@@ -24,8 +24,8 @@ This repo uses k3s (local) and plain kubectl (all envs), with task entrypoints m
 
 ## Production Environment
 
-- Prod mise env config: `mise.production.toml`
-- `KUBECONFIG` should be provided via your shell environment (not committed to the repo)
+- Prod mise env config: `mise.prod.toml`
+- Prod kubeconfig: `prod/k3s/kubeconfig/kubeconfig.yaml`
 
 Infisical (production secrets):
 
