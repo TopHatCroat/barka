@@ -8,6 +8,15 @@ instance:
   name: openclaw
   envFromSecretName: openclaw-secrets
 
+  # Opt-in OpenClaw image auto-update (handled by the operator).
+  # See: https://github.com/OpenClaw-rocks/k8s-operator#auto-update
+  autoUpdate:
+    enabled: true
+    checkInterval: "24h"
+    backupBeforeUpdate: true
+    rollbackOnFailure: true
+    healthCheckTimeout: "10m"
+
   configRaw:
     gateway:
       bind: lan

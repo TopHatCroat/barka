@@ -5,6 +5,11 @@ metadata:
   name: {{ .Values.instance.name }}
   namespace: {{ .Release.Namespace }}
 spec:
+{{ if and .Values.instance.autoUpdate .Values.instance.autoUpdate.enabled }}
+  autoUpdate:
+{{ toYaml .Values.instance.autoUpdate | nindent 4 }}
+
+{{ end }}
   config:
     raw:
 {{ toYaml .Values.instance.configRaw | nindent 6 }}
