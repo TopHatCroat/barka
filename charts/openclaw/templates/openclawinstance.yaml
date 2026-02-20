@@ -5,11 +5,6 @@ metadata:
   name: {{ .Values.instance.name }}
   namespace: {{ .Release.Namespace }}
 spec:
-{{ if and .Values.instance.autoUpdate .Values.instance.autoUpdate.enabled }}
-  autoUpdate:
-{{ toYaml .Values.instance.autoUpdate | nindent 4 }}
-
-{{ end }}
   config:
     raw:
 {{ toYaml .Values.instance.configRaw | nindent 6 }}
@@ -31,5 +26,52 @@ spec:
 
   security:
 {{ toYaml .Values.instance.security | nindent 4 }}
+
+{{ if and .Values.instance.autoUpdate .Values.instance.autoUpdate.enabled }}
+  autoUpdate:
+{{ toYaml .Values.instance.autoUpdate | nindent 4 }}
+
+{{ end }}
+
+  runtimeDeps:
+    pnpm: true    # Installs pnpm via corepack
+    python: true  # Installs Python 3.12 + uv
+
+  env:
+    - name: VIRTUAL_ENV
+      value: "/home/openclaw/.openclaw/workspace/.venv"
+    - name: PATH
+      value: "/home/openclaw/.openclaw/workspace/.venv/bin:/home/openclaw/.openclaw/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+  initContainers:
+    - name: init-python-deps
+      image: "ghcr.io/astral-sh/uv:0.6-bookworm-slim"
+      imagePullPolicy: IfNotPresent
+      command: ["sh", "-lc"]
+      args:
+        - |
+          set -eu
+
+          root=/home/openclaw/.openclaw
+          workspace="$root/workspace"
+          req="$workspace/requirements.txt"
+          venv="$workspace/.venv"
+          cache="$workspace/.cache/uv"
+
+          [ -f "$req" ] || exit 0
+
+          py="$root/.local/bin/python"
+          [ -x "$py" ] || exit 0
+
+          export UV_CACHE_DIR="$cache"
+          export HOME=/tmp
+
+          mkdir -p "$cache"
+          [ -d "$venv" ] || "$py" -m venv "$venv"
+          uv pip install -r "$req" --python "$venv/bin/python"
+
+      volumeMounts:
+        - name: data
+          mountPath: /home/openclaw/.openclaw
 
 {{- end }}
