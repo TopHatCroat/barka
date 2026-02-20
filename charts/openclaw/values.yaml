@@ -57,6 +57,17 @@ instance:
             baseUrl: "https://api.perplexity.ai"
             model: "perplexity/sonar-pro"
 
+      skills:
+        load:
+          extraDirs:
+          - "/home/openclaw/.openclaw/workspace/skills"
+      
+      commands:
+        native: "auto"
+        nativeSkills: "auto"
+        bash: true
+        config: true
+
   storage:
     persistence:
       enabled: true
