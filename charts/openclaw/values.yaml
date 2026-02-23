@@ -16,6 +16,8 @@ instance:
       enabled: true
       # Pin a version to avoid "latest"/API lookups at pod start.
       version: "2.58.0"
+      # Used when seeding GH_CONFIG_DIR/hosts.yml from GITHUB_PAT_KEY.
+      user: "AntonioClawbot"
     ssh:
       # If set, the init container writes these env vars into files under
       # /home/openclaw/.openclaw/.ssh for git/gh to use.

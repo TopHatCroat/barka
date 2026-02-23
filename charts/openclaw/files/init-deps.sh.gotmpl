@@ -89,3 +89,31 @@ if [ -n "${uid:-}" ] && [ -n "${gid:-}" ]; then
   chown -R "$uid:$gid" "$ssh_dir" 2>/dev/null || true
 fi
 {{- end }}
+
+# gh auth (optional): seed GH_CONFIG_DIR/hosts.yml from env
+pat_token="$(printenv GITHUB_PAT_KEY 2>/dev/null || true)"
+gh_user={{ (.Values.instance.depsInit.gh.user | default "AntonioClawbot") | quote }}
+if [ -n "${pat_token:-}" ]; then
+  gh_dir="$root/.config/gh"
+  hosts_yml="$gh_dir/hosts.yml"
+
+  mkdir -p "$gh_dir"
+
+  umask 077
+  {
+    printf '%s\n' 'github.com:'
+    printf '%s\n' '    users:'
+    printf '%s\n' "        ${gh_user}:"
+    printf '%s\n' "            oauth_token: ${pat_token}"
+    printf '%s\n' '    git_protocol: ssh'
+    printf '%s\n' "    oauth_token: ${pat_token}"
+    printf '%s\n' "    user: ${gh_user}"
+  } > "$hosts_yml"
+  chmod 600 "$hosts_yml" 2>/dev/null || true
+
+  uid="$(stat -c '%u' "$root" 2>/dev/null || echo "")"
+  gid="$(stat -c '%g' "$root" 2>/dev/null || echo "")"
+  if [ -n "${uid:-}" ] && [ -n "${gid:-}" ]; then
+    chown "$uid:$gid" "$hosts_yml" 2>/dev/null || true
+  fi
+fi

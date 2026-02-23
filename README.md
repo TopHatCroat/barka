@@ -183,3 +183,11 @@ gh auth status
 ```
 
 Note: SSH keys are for `git@github.com:...` operations; `gh` API access still needs a token. For a non-interactive setup, store a token as `GH_TOKEN` in Infisical (or export it in `.env.local`); `gh` will pick it up automatically without running `gh auth login`.
+
+`gh` stores the auth token on disk in `hosts.yml`. In this cluster the config directory is set to `GH_CONFIG_DIR=/home/openclaw/.openclaw/.config/gh`, so the file is:
+
+- `/home/openclaw/.openclaw/.config/gh/hosts.yml`
+
+If `GITHUB_PAT_KEY` is present in `secret/openclaw-secrets`, the init container will write `hosts.yml` automatically.
+
+The file is written in the same shape as `gh` expects (including the `users.<name>.oauth_token` entry). The username defaults to `AntonioClawbot` and can be changed via `instance.depsInit.gh.user`.
