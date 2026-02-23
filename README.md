@@ -155,3 +155,31 @@ Local Ingress:
 Browser automation:
 
 - Local enables the Chromium sidecar (see `charts/openclaw/values-local.yaml`).
+
+### GitHub CLI (gh) in the OpenClaw pod
+
+The OpenClaw Helm chart installs the GitHub CLI (`gh`) into the instance's persistent volume via an init container (`init-deps`). The binary ends up at `/home/openclaw/.openclaw/.local/bin/gh` and is already on `PATH`.
+
+SSH key material is expected to come from `secret/openclaw-secrets` (prod: synced from Infisical; local: created by `local:openclaw:secrets:apply`). The init container writes it into `/home/openclaw/.openclaw/.ssh/`.
+
+Required secret keys (Infisical or local env):
+
+- `SSH_PRIVATE_KEY`: an `ed25519` (or RSA) private key PEM
+- `SSH_KNOWN_HOSTS`: `known_hosts` entries for the git hosts you will access
+
+Tip: generate `known_hosts` content locally with (replace the hostname as needed):
+
+```bash
+ssh-keyscan -t ed25519 <git-host>
+```
+
+Login guidance (inside the pod):
+
+```bash
+mise -E <env> run kube:kubectl -- -n openclaw exec -it openclaw-0 -- sh
+gh --version
+gh auth login
+gh auth status
+```
+
+Note: SSH keys are for `git@github.com:...` operations; `gh` API access still needs a token. For a non-interactive setup, store a token as `GH_TOKEN` in Infisical (or export it in `.env.local`); `gh` will pick it up automatically without running `gh auth login`.

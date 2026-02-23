@@ -8,6 +8,21 @@ instance:
   name: openclaw
   envFromSecretName: openclaw-secrets
 
+  depsInit:
+    # Shared initContainer that hydrates the persistent data volume with
+    # runtime dependencies used from the main OpenClaw container.
+    image: "ghcr.io/astral-sh/uv:0.10.4-python3.12-alpine"
+    gh:
+      enabled: true
+      # Pin a version to avoid "latest"/API lookups at pod start.
+      version: "2.58.0"
+    ssh:
+      # If set, the init container writes these env vars into files under
+      # /home/openclaw/.openclaw/.ssh for git/gh to use.
+      enabled: true
+      privateKeyEnv: "SSH_PRIVATE_KEY"
+      knownHostsEnv: "SSH_KNOWN_HOSTS"
+
   # Opt-in OpenClaw image auto-update (handled by the operator).
   # See: https://github.com/OpenClaw-rocks/k8s-operator#auto-update
   autoUpdate:

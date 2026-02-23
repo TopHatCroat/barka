@@ -42,36 +42,25 @@ spec:
       value: "/home/openclaw/.openclaw/workspace/.venv"
     - name: PATH
       value: "/home/openclaw/.openclaw/workspace/.venv/bin:/home/openclaw/.openclaw/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    - name: GH_CONFIG_DIR
+      value: "/home/openclaw/.openclaw/.config/gh"
+    - name: GIT_SSH_COMMAND
+      value: "ssh -F /home/openclaw/.openclaw/.ssh/config"
 
   initContainers:
-    - name: init-python-deps
-      image: "ghcr.io/astral-sh/uv:0.6-bookworm-slim"
+    - name: init-deps
+      image: {{ .Values.instance.depsInit.image | default "ghcr.io/astral-sh/uv:0.6-bookworm-slim" | quote }}
       imagePullPolicy: IfNotPresent
       command: ["sh", "-lc"]
       args:
         - |
-          set -eu
-
-          root=/home/openclaw/.openclaw
-          workspace="$root/workspace"
-          req="$workspace/requirements.txt"
-          venv="$workspace/.venv"
-          cache="$workspace/.cache/uv"
-
-          [ -f "$req" ] || exit 0
-
-          py="$root/.local/bin/python"
-          [ -x "$py" ] || exit 0
-
-          export UV_CACHE_DIR="$cache"
-          export HOME=/tmp
-
-          mkdir -p "$cache"
-          [ -d "$venv" ] || "$py" -m venv "$venv"
-          uv pip install -r "$req" --python "$venv/bin/python"
+{{ tpl (.Files.Get "files/init-deps.sh.gotmpl") . | indent 10 }}
 
       volumeMounts:
         - name: data
           mountPath: /home/openclaw/.openclaw
+      envFrom:
+        - secretRef:
+            name: {{ .Values.instance.envFromSecretName }}
 
 {{- end }}

@@ -1,0 +1,91 @@
+set -eu
+set -eu
+
+root=/home/openclaw/.openclaw
+workspace="$root/workspace"
+
+# This init container runs on Alpine and we assume x86_64 (amd64).
+arch=amd64
+
+py="$root/.local/bin/python"
+if [ ! -x "$py" ]; then
+  echo "Expected python at $py" >&2
+  exit 1
+fi
+
+# Python deps (only if requirements.txt exists)
+req="$workspace/requirements.txt"
+if [ -f "$req" ]; then
+  venv="$workspace/.venv"
+  export HOME=/tmp
+
+  [ -d "$venv" ] || "$py" -m venv "$venv"
+  "$venv/bin/python" -m pip install -r "$req"
+fi
+
+# gh install (installs into the persistent volume for the main container)
+{{- if (.Values.instance.depsInit.gh.enabled | default true) }}
+gh_version={{ (.Values.instance.depsInit.gh.version | default "2.58.0") | quote }}
+gh_bin="$root/.local/bin/gh"
+cache_dir="$workspace/.cache/gh"
+tgz="$cache_dir/gh_${gh_version}_linux_${arch}.tar.gz"
+url="https://github.com/cli/cli/releases/download/v${gh_version}/gh_${gh_version}_linux_${arch}.tar.gz"
+
+mkdir -p "$(dirname "$gh_bin")" "$cache_dir"
+
+if ! command -v wget >/dev/null 2>&1; then
+  echo "wget not found in init image; cannot install gh" >&2
+  exit 1
+fi
+
+if [ ! -x "$gh_bin" ]; then
+  [ -f "$tgz" ] || wget -qO "$tgz" "$url"
+
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "$tmp_dir"' EXIT
+
+  tar -xzf "$tgz" -C "$tmp_dir" "gh_${gh_version}_linux_${arch}/bin/gh"
+  cp "$tmp_dir/gh_${gh_version}_linux_${arch}/bin/gh" "$gh_bin"
+  chmod 755 "$gh_bin"
+fi
+{{- end }}
+
+# SSH material (from env -> files on the persistent volume)
+{{- if (.Values.instance.depsInit.ssh.enabled | default true) }}
+ssh_key_env={{ (.Values.instance.depsInit.ssh.privateKeyEnv | default "SSH_PRIVATE_KEY") | quote }}
+ssh_known_hosts_env={{ (.Values.instance.depsInit.ssh.knownHostsEnv | default "SSH_KNOWN_HOSTS") | quote }}
+
+ssh_key_val="$(printenv "$ssh_key_env" 2>/dev/null || true)"
+ssh_known_hosts_val="$(printenv "$ssh_known_hosts_env" 2>/dev/null || true)"
+
+if [ -z "${ssh_key_val:-}" ]; then
+  echo "Missing env var $ssh_key_env" >&2
+  exit 1
+fi
+if [ -z "${ssh_known_hosts_val:-}" ]; then
+  echo "Missing env var $ssh_known_hosts_env" >&2
+  exit 1
+fi
+
+ssh_dir="$root/.ssh"
+mkdir -p "$ssh_dir"
+printf "%s\n" "$ssh_key_val" > "$ssh_dir/id_ed25519"
+printf "%s\n" "$ssh_known_hosts_val" > "$ssh_dir/known_hosts"
+chmod 600 "$ssh_dir/id_ed25519"
+chmod 644 "$ssh_dir/known_hosts"
+
+cat > "$ssh_dir/config" <<EOF
+Host *
+  IdentityFile $ssh_dir/id_ed25519
+  IdentitiesOnly yes
+  UserKnownHostsFile $ssh_dir/known_hosts
+  StrictHostKeyChecking yes
+EOF
+chmod 600 "$ssh_dir/config"
+
+uid="$(stat -c '%u' "$root" 2>/dev/null || echo "")"
+gid="$(stat -c '%g' "$root" 2>/dev/null || echo "")"
+if [ -n "${uid:-}" ] && [ -n "${gid:-}" ]; then
+  chown -R "$uid:$gid" "$ssh_dir" 2>/dev/null || true
+fi
+{{- end }}

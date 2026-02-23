@@ -19,7 +19,7 @@ Usage:
   openclaw-workspace-sync.sh push   # local -> pod
 
 Notes:
-  - The workspace's .git directory is excluded from sync.
+  - The workspace's .git, .cache, and .venv directories are excluded from sync.
 
 Examples:
   # Using mise prod env (.env.prod) to provide kubeconfig + OPENCLAW_WORKSPACE_LOCAL_DIR
@@ -70,11 +70,22 @@ fi
 
 local_dir="$OPENCLAW_WORKSPACE_LOCAL_DIR"
 
+# macOS tar (bsdtar/libarchive) may include extended attributes (xattrs) in PAX
+# headers. Some minimal tar implementations in containers (e.g., busybox) warn
+# about unknown LIBARCHIVE.* headers when extracting. Force-disable mac metadata
+# on the sending side.
+tar_extra_flags=""
+case "$(tar --version 2>/dev/null || true)" in
+  bsdtar*)
+    tar_extra_flags="--no-xattrs --no-acls --disable-copyfile --format=ustar"
+    ;;
+esac
+
 case "$cmd" in
   pull)
     mkdir -p "$local_dir"
     echo "Pulling $ns/$pod:$workspace_path -> $local_dir" >&2
-    kubectl -n "$ns" exec "pod/$pod" -c "$container" -- sh -c "tar -C '$workspace_path' -cf - --exclude='.git' ." | tar -C "$local_dir" -xf -
+    kubectl -n "$ns" exec "pod/$pod" -c "$container" -- sh -c "tar -C '$workspace_path' -cf - --exclude='.git' --exclude='.cache' --exclude='.venv' ." | tar -C "$local_dir" -xf -
     ;;
   push)
     if [ ! -d "$local_dir" ]; then
@@ -82,6 +93,6 @@ case "$cmd" in
       exit 1
     fi
     echo "Pushing $local_dir -> $ns/$pod:$workspace_path" >&2
-    tar -C "$local_dir" -cf - --exclude='.git' . | kubectl -n "$ns" exec -i "pod/$pod" -c "$container" -- sh -c "tar -C '$workspace_path' -xf -"
+    COPYFILE_DISABLE=1 tar -C "$local_dir" -cf - $tar_extra_flags --exclude='.git' --exclude='.cache' --exclude='.venv' . | kubectl -n "$ns" exec -i "pod/$pod" -c "$container" -- sh -c "tar -C '$workspace_path' -xf -"
     ;;
 esac

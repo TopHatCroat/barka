@@ -348,17 +348,33 @@ kubectl get ns "$ns" >/dev/null 2>&1 || kubectl create ns "$ns"
 
 : "${OPENCLAW_GATEWAY_TOKEN:?Set OPENCLAW_GATEWAY_TOKEN in .env.local}"
 
-args="--from-literal=OPENCLAW_GATEWAY_TOKEN=$OPENCLAW_GATEWAY_TOKEN"
-for var in OPENAI_API_KEY OPENCLAW_OWNER_PHONE PERPLEXITY_API_KEY OPENROUTER_API_KEY FIRECRAWL_API_KEY; do
-  eval "val=\${$var-}"
-  if [ -n "${val:-}" ]; then
-    args="$args --from-literal=$var=$val"
-  fi
-done
+  args="--from-literal=OPENCLAW_GATEWAY_TOKEN=$OPENCLAW_GATEWAY_TOKEN"
+  for var in OPENAI_API_KEY OPENCLAW_OWNER_PHONE PERPLEXITY_API_KEY OPENROUTER_API_KEY FIRECRAWL_API_KEY GH_TOKEN; do
+    eval "val=\${$var-}"
+    if [ -n "${val:-}" ]; then
+      args="$args --from-literal=$var=$val"
+    fi
+  done
 
-kubectl -n "$ns" create secret generic "$name" $args \
-  --dry-run=client \
-  -o yaml | kubectl apply -f -
+  # Multiline secrets (SSH keys) must be passed via files.
+  tmp_files=""
+  for var in SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+    eval "val=\${$var-}"
+    if [ -n "${val:-}" ]; then
+      f="$(mktemp)"
+      tmp_files="$tmp_files $f"
+      printf "%s\n" "$val" > "$f"
+      args="$args --from-file=$var=$f"
+    fi
+  done
+
+  kubectl -n "$ns" create secret generic "$name" $args \
+    --dry-run=client \
+    -o yaml | kubectl apply -f -
+
+  if [ -n "${tmp_files:-}" ]; then
+    rm -f $tmp_files
+  fi
 
 # If OpenClaw is already running, restart to pick up env changes.
 if kubectl -n openclaw get statefulset openclaw >/dev/null 2>&1; then
