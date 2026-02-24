@@ -105,7 +105,7 @@ if [ -n "${pat_token:-}" ]; then
     printf '%s\n' '    users:'
     printf '%s\n' "        ${gh_user}:"
     printf '%s\n' "            oauth_token: ${pat_token}"
-    printf '%s\n' '    git_protocol: ssh'
+    printf '%s\n' '    git_protocol: https'
     printf '%s\n' "    oauth_token: ${pat_token}"
     printf '%s\n' "    user: ${gh_user}"
   } > "$hosts_yml"
