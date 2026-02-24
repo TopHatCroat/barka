@@ -43,6 +43,8 @@ instance:
         models:
           "openai-codex/gpt-5.2-codex":
             alias: codex
+          "openai-codex/gpt-5-nano":
+            alias: cheap
         model:
           primary: "openai-codex/gpt-5.2-codex"
 
