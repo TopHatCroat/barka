@@ -117,3 +117,14 @@ if [ -n "${pat_token:-}" ]; then
     chown "$uid:$gid" "$hosts_yml" 2>/dev/null || true
   fi
 fi
+
+# git identity (optional): set global user.name/user.email
+claw_email="$(printenv CLAW_EMAIL 2>/dev/null || true)"
+if [ -n "${claw_email:-}" ]; then
+  if command -v git >/dev/null 2>&1; then
+    git config --global user.name "$gh_user"
+    git config --global user.email "$claw_email"
+  else
+    echo "git not found in main image; cannot set identity" >&2
+  fi
+fi

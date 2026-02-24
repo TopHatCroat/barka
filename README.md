@@ -191,3 +191,8 @@ Note: SSH keys are for `git@github.com:...` operations; `gh` API access still ne
 If `GITHUB_PAT_KEY` is present in `secret/openclaw-secrets`, the init container will write `hosts.yml` automatically.
 
 The file is written in the same shape as `gh` expects (including the `users.<name>.oauth_token` entry). The username defaults to `AntonioClawbot` and can be changed via `instance.depsInit.gh.user`.
+
+If `CLAW_EMAIL` is present in `secret/openclaw-secrets`, the init container configures git identity:
+
+- `user.name` is set to `instance.depsInit.gh.user`
+- `user.email` is set to `CLAW_EMAIL`
