@@ -219,7 +219,20 @@ run = [
 run = "kubectl"
 
 [tasks."kube:headlamp:token"]
-run = "kubectl -n headlamp create token headlamp-admin"
+run = '''
+#!/usr/bin/env sh
+set -eu
+
+token="$(kubectl -n headlamp create token headlamp-admin)"
+
+if command -v pbcopy >/dev/null 2>&1; then
+  printf "%s" "$token" | pbcopy
+  echo "Token copied to clipboard."
+else
+  echo "$token"
+  echo "pbcopy not found; token printed only." >&2
+fi
+'''
 
 [tasks."kube:headlamp:port-forward"]
 run = "kubectl -n headlamp port-forward svc/headlamp 8081:80"
