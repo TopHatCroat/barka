@@ -50,6 +50,46 @@ if [ ! -x "$gh_bin" ]; then
 fi
 {{- end }}
 
+# gogcli install (installs into the persistent volume for the main container)
+{{- if (.Values.instance.depsInit.gogcli.enabled | default true) }}
+gogcli_version={{ (.Values.instance.depsInit.gogcli.version | default "0.11.0") | quote }}
+gogcli_bin="$root/.local/bin/gog"
+gogcli_cache_dir="$workspace/.cache/gogcli"
+gogcli_tgz="$gogcli_cache_dir/gogcli_${gogcli_version}_linux_${arch}.tar.gz"
+gogcli_url="https://github.com/steipete/gogcli/releases/download/v${gogcli_version}/gogcli_${gogcli_version}_linux_${arch}.tar.gz"
+
+mkdir -p "$(dirname "$gogcli_bin")" "$gogcli_cache_dir"
+
+if ! command -v wget >/dev/null 2>&1; then
+  echo "wget not found in init image; cannot install gogcli" >&2
+  exit 1
+fi
+
+if [ ! -x "$gogcli_bin" ]; then
+  [ -f "$gogcli_tgz" ] || wget -qO "$gogcli_tgz" "$gogcli_url"
+
+  tmp_dir="$(mktemp -d)"
+  tar -xzf "$gogcli_tgz" -C "$tmp_dir"
+
+  if [ -x "$tmp_dir/gog" ]; then
+    cp "$tmp_dir/gog" "$gogcli_bin"
+  elif [ -x "$tmp_dir/gogcli" ]; then
+    cp "$tmp_dir/gogcli" "$gogcli_bin"
+  elif [ -x "$tmp_dir/bin/gog" ]; then
+    cp "$tmp_dir/bin/gog" "$gogcli_bin"
+  elif [ -x "$tmp_dir/bin/gogcli" ]; then
+    cp "$tmp_dir/bin/gogcli" "$gogcli_bin"
+  else
+    echo "gogcli binary not found in archive" >&2
+    rm -rf "$tmp_dir"
+    exit 1
+  fi
+
+  rm -rf "$tmp_dir"
+  chmod 755 "$gogcli_bin"
+fi
+{{- end }}
+
 # SSH material (from env -> files on the persistent volume)
 {{- if (.Values.instance.depsInit.ssh.enabled | default true) }}
 ssh_key_env={{ (.Values.instance.depsInit.ssh.privateKeyEnv | default "SSH_PRIVATE_KEY") | quote }}

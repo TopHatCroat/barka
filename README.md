@@ -196,3 +196,14 @@ If `CLAW_EMAIL` is present in `secret/openclaw-secrets`, the init container conf
 
 - `user.name` is set to `instance.depsInit.gh.user`
 - `user.email` is set to `CLAW_EMAIL`
+
+### gogcli in the OpenClaw pod
+
+The OpenClaw Helm chart installs `gogcli` into the instance's persistent volume via the same init container (`init-deps`). The binary ends up at `/home/openclaw/.openclaw/.local/bin/gog` and is already on `PATH`.
+
+Verify inside the pod:
+
+```bash
+mise -E <env> run kube:kubectl -- -n openclaw exec -it openclaw-0 -- sh
+gog --version
+```
